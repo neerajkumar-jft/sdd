@@ -1,0 +1,11 @@
+bundle:
+  name: pidilite_demo
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    default: true
+    workspace:
+      host: https://dbc-b53b2bf8-6950.cloud.databricks.com

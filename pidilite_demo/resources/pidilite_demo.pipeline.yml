@@ -1,0 +1,14 @@
+resources:
+  pipelines:
+    pidilite_demo_pipeline:
+      name: pidilite_demo_bronze
+      catalog: pidilite_demo
+      target: bronze
+      serverless: true
+      continuous: false
+      development: true
+      libraries:
+        - file:
+            path: ../src/pidilite_demo/bronze.py
+        - file:
+            path: ../src/pidilite_demo/silver.py
