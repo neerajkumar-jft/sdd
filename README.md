@@ -2,9 +2,9 @@
 
 A Unity Catalog-governed data pipeline that ingests and conforms Pidilite's
 field-sales organization data — divisions, the sales management hierarchy,
-field teams, and the customer/dealer network — into a clean, validated set of
-dimension tables ready for downstream access control, analytics, and
-reporting.
+field teams, the customer/dealer network, and sales transactions against
+that network — into a clean, validated star schema ready for downstream
+access control, analytics, and reporting.
 
 ## Architecture
 
@@ -14,27 +14,29 @@ implementing a medallion architecture across multiple schemas in one Unity
 Catalog catalog:
 
 ```
-Source files (division, person, field_team, customer)
+Source files (division, person, field_team, customer, sales_transaction)
         │
         ▼
-Volume: pidilite_demo.bronze.landing/{division,person,field_team,customer}/
+Volume: pidilite_demo.bronze.landing/{division,person,field_team,customer,sales_transaction}/
         │  Auto Loader (cloudFiles), one incremental stream per entity
         ▼
 Bronze: pidilite_demo.bronze.raw_*        (raw, schema-preserved, no transformation)
         │  column rename/normalization, whitespace trimming, enum
-        │  canonicalization, safe type casting, dedupe, referential
-        │  integrity checks
+        │  canonicalization, safe type casting, dedupe, join-based
+        │  referential integrity checks against upstream silver tables
         ▼
-Silver: pidilite_demo.silver.dim_*             (cleansed, validated)
-        pidilite_demo.silver.dim_*_quarantine  (rows failing validation, held for review)
+Silver: pidilite_demo.silver.dim_*/fact_*             (cleansed, validated)
+        pidilite_demo.silver.dim_*/fact_*_quarantine  (rows failing validation, held for review)
 ```
 
 Bronze and silver run as **one pipeline** with two source files
 (`src/pidilite_demo/bronze.py`, `src/pidilite_demo/silver.py`), so Lakeflow
-resolves the dependency DAG and staleness tracking automatically end to end.
-Every entity publishes a clean table alongside a paired quarantine table, so
-bad records are visible and inspectable rather than silently dropped or
-failing the whole pipeline run.
+resolves the dependency DAG and staleness tracking automatically end to end —
+`fact_sales_transaction`'s cleansing depends on `dim_customer` and
+`dim_person` already being validated, and the pipeline sequences that on its
+own. Every entity publishes a clean table alongside a paired quarantine
+table, so bad records are visible and inspectable rather than silently
+dropped or failing the whole pipeline run.
 
 ## Data model
 
@@ -47,6 +49,10 @@ failing the whole pipeline run.
   `hierarchy_type = 'Sales Hierarchy'` and `'MDI Hierarchy'`, each with its
   own management chain.
 - **`dim_customer`** — the dealer/retailer network served by each field team.
+- **`fact_sales_transaction`** — individual sales transactions against that
+  customer network (`customer_code`, `transaction_date`, `product_category`,
+  `quantity`, `revenue`, `salesperson_id`), attributed to the Territory/Area
+  Sales Manager of the customer's field team.
 
 Generation logic and volumes are in `pidilite_demo/data_generation/generate_dims.py`.
 
@@ -62,7 +68,7 @@ pidilite_demo/
 ├── data_generation/
 │   └── generate_dims.py                    # synthetic data generator, seeded from client sample
 └── sample_data/                            # generated source files, landed into the bronze volume
-    ├── division/  ├── person/  ├── field_team/  └── customer/
+    ├── division/  ├── person/  ├── field_team/  ├── customer/  └── sales_transaction/
 ```
 
 ## Prerequisites
