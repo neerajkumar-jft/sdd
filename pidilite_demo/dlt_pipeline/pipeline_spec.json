@@ -6,6 +6,7 @@
   "continuous": false,
   "development": true,
   "libraries": [
-    { "file": { "path": "/Workspace/Users/shadab.ahmed@jellyfishtechnologies.com/pidilite_demo/bronze.py" } }
+    { "file": { "path": "/Workspace/Users/shadab.ahmed@jellyfishtechnologies.com/pidilite_demo/bronze.py" } },
+    { "file": { "path": "/Workspace/Users/shadab.ahmed@jellyfishtechnologies.com/pidilite_demo/silver.py" } }
   ]
 }

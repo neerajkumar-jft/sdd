@@ -10,7 +10,7 @@ ENTITIES = ["division", "person", "field_team", "customer"]
 
 def _make_bronze_table(entity: str):
     @dlt.table(
-        name=f"raw_{entity}",
+        name=f"pidilite_demo.bronze.raw_{entity}",
         comment=f"Bronze: raw {entity} rows landed as-is via Auto Loader, no transformation.",
     )
     def _bronze():
