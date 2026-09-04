@@ -1,4 +1,4 @@
-field_team_code,division_id,hierarchy_type,master_person_id,ra1_person_id,ra2_person_id
+field_team_code,division_id,Tzxntyoe,master_person_id,ra1_person_id,ra2_person_id
 WSSTTY1,10,Sales Hierarchy,P004,P003,P001
 WSSTTY2,10,Sales Hierarchy,P005,P003,P001
 WSSTTY3,10,Sales Hierarchy,P006,P003,P001
@@ -15,3 +15,5 @@ WSSTTY10,40,Sales Hierarchy,P022,P021,P001
 WSSTTY11,40,Sales Hierarchy,P023,P021,P001
 WSSTTY12,40,Sales Hierarchy,P024,P021,P001
 WSSTTY12,40,MDI Hierarchy,P026,P025,P002
+  wsstty5  ,20,MDI,P901,P901,P002
+WSSTTZ99,99,Sales Hierarchy,P902,P902,P001

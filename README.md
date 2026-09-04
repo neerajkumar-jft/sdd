@@ -16,7 +16,7 @@ model.
 | Silver (cleansing, validation, quarantine) | ✅ Done |
 | Gold (conformed dims + `access_mapping`) | ⏳ Not started |
 | Row-level security | ⏳ Not started |
-| `fact_sales_transaction` | ⏳ Not started |
+| `fact_sales_transaction` (generator + bronze + silver) | ✅ Done |
 | Lakebase OLTP comments | ⏳ Not started |
 | Salesforce sync | ⏳ Not started |
 | AI/BI Dashboard + Genie space | ⏳ Not started |
@@ -37,10 +37,12 @@ Volume: pidilite_demo.bronze.landing/{division,person,field_team,customer}/
         ▼
 Bronze: pidilite_demo.bronze.raw_*        (all STRING, no transformation)
         │  generic cleansing: rename map, trim, canonicalize enums,
-        │  safe casts, dedupe, join-based FK checks
+        │  safe/try casts, dedupe, join-based FK checks (composite where the
+        │  key is composite)
         ▼
 Silver: pidilite_demo.silver.dim_*        (cleansed + validated)
-        pidilite_demo.silver.dim_*_quarantine   (rows that failed validation)
+        pidilite_demo.silver.fact_sales_transaction
+        pidilite_demo.silver.*_quarantine   (rows that failed validation)
         │
         ▼
 Gold:   pidilite_demo.gold.*              (not yet built)
@@ -68,7 +70,16 @@ actual field-sales org structure:
   with a different management chain — this is preserved from the real sample,
   not an error.
 - **`dim_customer`** — dealers/retailers being sold to (never log in, no
-  `user_email`).
+  `user_email`). Carries `hierarchy_type` alongside `field_team_code`: a
+  customer belongs to a *(field_team_code, hierarchy_type)* pair, never to the
+  code alone. Without it, a dealer under a code shared by both chains resolves
+  to two different Masters and row-level security would expose it to both.
+- **`fact_sales_transaction`** — invented outright; the client's sample carries
+  no revenue, quantity, product or date at all. Modeled with Pareto revenue
+  concentration, per-category seasonality, and dealer lifecycle (dormant /
+  churned / newly onboarded) so the shape reads as a real business rather than
+  uniform noise. Seasonality assumptions are *plausible, not client-confirmed* —
+  flag them rather than presenting them as Pidilite's actual curve.
 
 See `pidilite_demo/data_generation/generate_dims.py` for exact volumes and
 generation logic.
@@ -83,9 +94,11 @@ pidilite_demo/
 │   ├── bronze.py                           # Auto Loader ingestion, one stream per entity
 │   └── silver.py                           # generic cleansing + quarantine framework
 ├── data_generation/
-│   └── generate_dims.py                    # Faker-based synthetic data generator
+│   ├── generate_dims.py                    # Faker-based dim generator
+│   └── generate_sales.py                   # fact generator (reads the dim CSVs)
 └── sample_data/                            # generated CSVs, landed into the bronze volume
-    ├── division/  ├── person/  ├── field_team/  └── customer/
+    ├── division/  ├── person/  ├── field_team/
+    ├── customer/  └── sales/
 ```
 
 ## Prerequisites
@@ -119,15 +132,35 @@ databricks bundle run pidilite_demo_pipeline --profile <profile> -t dev
 To regenerate the seed data (deterministic, same seed → same output):
 
 ```bash
-python3 pidilite_demo/data_generation/generate_dims.py
+python3 pidilite_demo/data_generation/generate_dims.py   # dims first (FK order)
+python3 pidilite_demo/data_generation/generate_sales.py  # then the fact table
 ```
+
+Both generators deliberately inject a handful of messy rows (`INJECT_DIRTY`),
+split between *cleansable* (casing/enum/whitespace drift that silver
+normalizes) and *quarantine-bound* (null email, bad email format, orphan FKs,
+unparseable date, non-positive quantity). Without them the `*_quarantine`
+tables come out empty and there is nothing to show for the data-quality half of
+the demo. `generate_dims.py` also lands the client's original `Tzxntyoe` column
+typo in the field_team header, so silver's rename map demonstrably does work.
 
 Then land the CSVs into the bronze volume before running the pipeline:
 
 ```bash
-databricks fs cp <entity>/<entity>.csv \
-  dbfs:/Volumes/pidilite_demo/bronze/landing/<entity>/<entity>.csv \
-  --profile <profile>
+for e in division person field_team customer sales; do
+  databricks fs cp "pidilite_demo/sample_data/$e/$e.csv" \
+    "dbfs:/Volumes/pidilite_demo/bronze/landing/$e/$e.csv" \
+    --overwrite --profile <profile>
+done
+```
+
+**Gotcha:** Auto Loader tracks files by path, so overwriting a CSV in place is
+*not* re-ingested by an incremental update — and the dim schemas have changed
+(`dim_customer` gained `hierarchy_type`). After re-seeding, run a full refresh
+so bronze re-reads everything from scratch:
+
+```bash
+databricks bundle run pidilite_demo_pipeline --full-refresh-all --profile <profile> -t dev
 ```
 
 ## License

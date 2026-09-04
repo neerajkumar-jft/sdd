@@ -34,12 +34,25 @@ ROLE_MAP = {
     "HO": "Head Office",
 }
 
+PRODUCT_CATEGORY_MAP = {
+    "ADHESIVES": "Adhesives",
+    "SEALANTS": "Sealants",
+    "CONSTRUCTION CHEMICALS": "Construction Chemicals",
+    "CONSTRUCTION CHEMICAL": "Construction Chemicals",
+    "ART & CRAFT": "Art & Craft",
+    "ART AND CRAFT": "Art & Craft",
+    "ART&CRAFT": "Art & Craft",
+    "INDUSTRIAL RESINS": "Industrial Resins",
+    "INDUSTRIAL RESIN": "Industrial Resins",
+}
+
 # raw source column (lower_snake_case) -> canonical target column, per entity
 RENAME_MAPS = {
     "division": {},
     "person": {},
     "field_team": {"tzxntyoe": "hierarchy_type"},  # known typo in the client sample
     "customer": {},
+    "sales": {},
 }
 
 EMAIL_RE = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -89,6 +102,16 @@ def safe_int(df: DataFrame, column: str) -> DataFrame:
     return df.withColumn(column, F.col(column).cast(IntegerType())) if column in df.columns else df
 
 
+def try_cast(df: DataFrame, column: str, sql_type: str) -> DataFrame:
+    """ANSI-safe cast: an unparseable value becomes NULL and is caught by a
+    named expectation, instead of failing the whole pipeline update. Needed for
+    the fact table, where a bad date or a non-numeric revenue is exactly the
+    kind of row that should land in quarantine rather than stop the run."""
+    if column not in df.columns:
+        return df
+    return df.withColumn(column, F.expr(f"try_cast(`{column}` as {sql_type})"))
+
+
 def canonicalize(df: DataFrame, column: str, canonical_map: dict) -> DataFrame:
     """
     Normalize free-text enum drift (casing/underscores/hyphens) to one
@@ -103,15 +126,36 @@ def canonicalize(df: DataFrame, column: str, canonical_map: dict) -> DataFrame:
     return df.withColumn(column, F.coalesce(mapping_expr[lookup_key], F.col(column)))
 
 
-def mark_fk_valid(df: DataFrame, fk_col: str, ref_df: DataFrame, ref_col: str, flag_col: str) -> DataFrame:
+def mark_fk_valid(df: DataFrame, fk_cols, ref_df: DataFrame, ref_cols, flag_col: str) -> DataFrame:
     """Referential check via join (not a hardcoded id list) - flags rows whose
     FK doesn't exist in the referenced table. Null FK isn't flagged here;
-    that's the job of a separate not-null check so failure reasons don't overlap."""
-    ref = ref_df.select(F.col(ref_col).alias("__ref_key")).distinct()
+    that's the job of a separate not-null check so failure reasons don't overlap.
+
+    Accepts either a single column name or a list, because a field team's real
+    identity is (field_team_code, hierarchy_type) - the code alone repeats
+    across the Sales and MDI chains, so a single-column join would match a
+    customer against BOTH management chains and leak it to both.
+    """
+    fk_cols = [fk_cols] if isinstance(fk_cols, str) else list(fk_cols)
+    ref_cols = [ref_cols] if isinstance(ref_cols, str) else list(ref_cols)
+    aliases = [f"__ref_{i}" for i in range(len(ref_cols))]
+
+    ref = ref_df.select(*[F.col(c).alias(a) for c, a in zip(ref_cols, aliases)]).distinct()
+
+    join_cond = None
+    for fk, alias in zip(fk_cols, aliases):
+        eq = df[fk] == ref[alias]
+        join_cond = eq if join_cond is None else (join_cond & eq)
+
+    any_fk_null = None
+    for fk in fk_cols:
+        is_null = F.col(fk).isNull()
+        any_fk_null = is_null if any_fk_null is None else (any_fk_null | is_null)
+
     return (
-        df.join(ref, df[fk_col] == ref["__ref_key"], "left")
-        .withColumn(flag_col, F.col("__ref_key").isNotNull() | F.col(fk_col).isNull())
-        .drop("__ref_key")
+        df.join(ref, join_cond, "left")
+        .withColumn(flag_col, F.col(aliases[0]).isNotNull() | any_fk_null)
+        .drop(*aliases)
     )
 
 
@@ -130,17 +174,22 @@ def flag_quarantine(df: DataFrame, checks: list) -> DataFrame:
     return df
 
 
-def publish(entity: str, clean_fn, comment: str):
+def publish(entity: str, clean_fn, comment: str, table: str = None):
     """Runs clean_fn once, publishes a valid table + a paired quarantine table.
-    ponytail: recomputes cleaning per call site (valid vs quarantine) - fine
-    at demo volumes (~150 rows); cache the staging DF if this needs to scale."""
+    `table` overrides the default dim_<entity> naming, so the sales fact can
+    publish as fact_sales_transaction from the same framework.
 
-    @dlt.table(name=f"pidilite_demo.silver.dim_{entity}", comment=f"Silver: cleansed, validated {comment}.")
+    Gotcha: recomputes cleaning per call site (valid vs quarantine) - fine at
+    demo volumes (a few thousand rows); cache the staging DF if this needs to
+    scale."""
+    table = table or f"dim_{entity}"
+
+    @dlt.table(name=f"pidilite_demo.silver.{table}", comment=f"Silver: cleansed, validated {comment}.")
     def _valid():
         return clean_fn().filter("_is_valid").drop("_is_valid", "_quarantine_reasons")
 
     @dlt.table(
-        name=f"pidilite_demo.silver.dim_{entity}_quarantine",
+        name=f"pidilite_demo.silver.{table}_quarantine",
         comment=f"Silver: {comment} that failed validation - kept for inspection, not dropped silently.",
     )
     def _quarantine():
@@ -229,12 +278,23 @@ def _clean_customer() -> DataFrame:
     df = safe_int(df, "customer_code")
     df = safe_int(df, "division_id")
     df = upper_col(df, "field_team_code")
+    # A customer belongs to (field_team_code, hierarchy_type), never to the code
+    # alone - the same code exists under both the Sales and MDI chains with
+    # different managers. Dropping hierarchy_type here is what would silently
+    # expose one dealer to two separate management lines under RLS.
+    df = canonicalize(df, "hierarchy_type", HIERARCHY_TYPE_MAP)
     df = title_col(df, "city")
     df = title_col(df, "state")
     df = df.dropDuplicates(["customer_code"])
 
     field_team_ref = _clean_field_team().filter("_is_valid")
-    df = mark_fk_valid(df, "field_team_code", field_team_ref, "field_team_code", "_field_team_fk_valid")
+    df = mark_fk_valid(
+        df,
+        ["field_team_code", "hierarchy_type"],
+        field_team_ref,
+        ["field_team_code", "hierarchy_type"],
+        "_field_team_fk_valid",
+    )
 
     return flag_quarantine(
         df,
@@ -242,7 +302,41 @@ def _clean_customer() -> DataFrame:
             ("customer_code_is_null", F.col("customer_code").isNull()),
             ("customer_name_is_null", F.col("customer_name").isNull() | (F.col("customer_name") == "")),
             ("field_team_code_is_null", F.col("field_team_code").isNull()),
-            ("field_team_code_orphan_fk", ~F.col("_field_team_fk_valid")),
+            ("hierarchy_type_is_null", F.col("hierarchy_type").isNull() | (F.col("hierarchy_type") == "")),
+            ("field_team_key_orphan_fk", ~F.col("_field_team_fk_valid")),
+        ],
+    )
+
+
+def _clean_sales() -> DataFrame:
+    df = dlt.read("pidilite_demo.bronze.raw_sales")
+    df = normalize_column_names(df)
+    df = apply_rename_map(df, RENAME_MAPS["sales"])
+    df = trim_all_strings(df)
+    df = upper_col(df, "transaction_id")
+    df = upper_col(df, "salesperson_id")
+    df = canonicalize(df, "product_category", PRODUCT_CATEGORY_MAP)
+    df = try_cast(df, "customer_code", "int")
+    df = try_cast(df, "quantity", "int")
+    df = try_cast(df, "revenue", "decimal(18,2)")
+    df = try_cast(df, "transaction_date", "date")
+    df = df.dropDuplicates(["transaction_id"])
+
+    customer_ref = _clean_customer().filter("_is_valid")
+    person_ref = _clean_person().filter("_is_valid")
+    df = mark_fk_valid(df, "customer_code", customer_ref, "customer_code", "_customer_fk_valid")
+    df = mark_fk_valid(df, "salesperson_id", person_ref, "person_id", "_salesperson_fk_valid")
+
+    return flag_quarantine(
+        df,
+        [
+            ("transaction_id_is_null", F.col("transaction_id").isNull()),
+            ("customer_code_is_null", F.col("customer_code").isNull()),
+            ("transaction_date_unparseable", F.col("transaction_date").isNull()),
+            ("quantity_not_positive", F.col("quantity").isNull() | (F.col("quantity") <= 0)),
+            ("revenue_null_or_negative", F.col("revenue").isNull() | (F.col("revenue") < 0)),
+            ("customer_code_orphan_fk", ~F.col("_customer_fk_valid")),
+            ("salesperson_id_orphan_fk", ~F.col("_salesperson_fk_valid")),
         ],
     )
 
@@ -251,3 +345,4 @@ publish("division", _clean_division, "division rows")
 publish("person", _clean_person, "person/roster rows")
 publish("field_team", _clean_field_team, "field team rows")
 publish("customer", _clean_customer, "customer rows")
+publish("sales", _clean_sales, "sales transaction rows", table="fact_sales_transaction")
