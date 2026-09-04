@@ -1,6 +1,6 @@
-# Pidilite Capability Demo
+# X Industries Capability Demo
 
-Synthetic-data build for a time-boxed Databricks capability demo for Pidilite
+Synthetic-data build for a time-boxed Databricks capability demo for X
 Industries — proving row-level security, an AI/BI dashboard, a Genie space,
 Lakebase OLTP comments, and a Salesforce sync job, entirely on generated data
 modeled after the client's real sample. This is explicitly **not** the
@@ -57,7 +57,7 @@ whole pipeline on a bad row (`expect_or_fail` is a footgun for a live demo).
 
 ## Data model
 
-Four dimension tables, modeled on the client's real sample and Pidilite's
+Four dimension tables, modeled on the client's real sample and X Industries'
 actual field-sales org structure:
 
 - **`dim_division`** — top-level business line (e.g. Consumer & Bazaar).
@@ -79,7 +79,7 @@ actual field-sales org structure:
   concentration, per-category seasonality, and dealer lifecycle (dormant /
   churned / newly onboarded) so the shape reads as a real business rather than
   uniform noise. Seasonality assumptions are *plausible, not client-confirmed* —
-  flag them rather than presenting them as Pidilite's actual curve.
+  flag them rather than presenting them as X Industries' actual curve.
 
 See `pidilite_demo/data_generation/generate_dims.py` for exact volumes and
 generation logic.

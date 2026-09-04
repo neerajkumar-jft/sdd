@@ -1,5 +1,5 @@
 """
-Generate synthetic dim tables for the Pidilite demo (Faker-seeded from the real client sample).
+Generate synthetic dim tables for the X Industries demo (Faker-seeded from the real client sample).
 
 Order matters: division -> person -> field_team -> customer (FK dependency).
 
@@ -80,9 +80,9 @@ def make_person(role, division_id, hierarchy_type):
     pid = f"P{_person_seq:03d}"
     name = fake.name()
     base = name.lower().replace(" ", ".").replace("'", "")
-    email, suffix = f"{base}@pidilitedemo.com", 2
+    email, suffix = f"{base}@salesdemo.com", 2
     while email in _used_emails:
-        email = f"{base}{suffix}@pidilitedemo.com"
+        email = f"{base}{suffix}@salesdemo.com"
         suffix += 1
     _used_emails.add(email)
     persons.append([pid, name, role, "" if division_id is None else division_id, hierarchy_type, email])
@@ -163,8 +163,13 @@ for code, ft in enumerate(assignments, start=1):
 
 if INJECT_DIRTY:
     # (a) cleansable - silver should normalize these, not quarantine them
-    persons.append(["P901", "person6", "HO", "", "ALL", " Rhea.Menon@PIDILITEDEMO.COM "])
-    field_teams.append(["  wsstty5  ", 20, "MDI", "P901", "P901", ra2_mdi])
+    persons.append(["P901", "person6", "HO", "", "ALL", " Rhea.Menon@SALESDEMO.COM "])
+    # Casing/enum drift on a field team. Reuses division 20's real MDI managers
+    # rather than inventing one: a manager holding two territories is ordinary,
+    # whereas wiring a Head Office person in as a territory Master is not, and
+    # it muddies any test of chain separation.
+    _mdi_20 = next(f for f in field_teams if f[1] == 20 and f[2] == "MDI Hierarchy")
+    field_teams.append(["  wsstty5  ", 20, "MDI", _mdi_20[3], _mdi_20[4], ra2_mdi])
     customers.append([901, "Kapoor Traders", 10, "wsstty1", "sales hierarchy", "  pune  ", "  maharashtra  "])
 
     # (b) quarantine-bound - each row trips exactly one named check in silver

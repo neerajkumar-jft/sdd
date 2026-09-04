@@ -12,3 +12,5 @@ resources:
             path: ../src/pidilite_demo/bronze.py
         - file:
             path: ../src/pidilite_demo/silver.py
+        - file:
+            path: ../src/pidilite_demo/gold.py

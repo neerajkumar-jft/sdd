@@ -1,5 +1,5 @@
 """
-Generate fact_sales_transaction for the Pidilite demo.
+Generate fact_sales_transaction for the X Industries demo.
 
 The client's sample carries no transactional figures at all (no revenue,
 quantity, product or date) - only master/hierarchy data - so the fact table has
@@ -32,7 +32,8 @@ INJECT_DIRTY = True
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..", "sample_data")
 os.makedirs(os.path.join(BASE_DIR, "sales"), exist_ok=True)
 
-# Real Pidilite-style category mix, constrained by what each division sells.
+# Category mix modeled on the client's real product lines, constrained by what
+# each division sells.
 DIVISION_CATEGORIES = {
     10: ["Adhesives", "Art & Craft", "Sealants"],              # Consumer & Bazaar
     20: ["Industrial Resins", "Adhesives"],                    # Industrial Resins
@@ -52,7 +53,7 @@ UNIT_PRICE = {
 # NOTE: these are *plausible demo assumptions, not client-confirmed facts* -
 # waterproofing/construction demand is modeled as running ahead of the monsoon
 # and slowing during it, and consumer/art & craft as lifting for school
-# reopening and the festive quarter. Worth validating with Pidilite rather than
+# reopening and the festive quarter. Worth validating with X Industries rather than
 # presenting as their actual seasonality.
 SEASONALITY = {
     "Construction Chemicals": [0.80, 0.85, 1.15, 1.35, 1.40, 1.25, 0.70, 0.65, 0.90, 1.20, 1.15, 0.95],
