@@ -14,12 +14,18 @@ model.
 | Data generation (Faker, seeded from client sample) | ✅ Done |
 | Bronze (Auto Loader ingestion) | ✅ Done |
 | Silver (cleansing, validation, quarantine) | ✅ Done |
-| Gold (conformed dims + `access_mapping`) | ⏳ Not started |
-| Row-level security | ⏳ Not started |
+| Gold (conformed dims + derived access maps) | ✅ Code written |
+| Row-level security (filter functions + grants) | ✅ SQL written |
 | `fact_sales_transaction` (generator + bronze + silver) | ✅ Done |
 | Lakebase OLTP comments | ⏳ Not started |
 | Salesforce sync | ⏳ Not started |
 | AI/BI Dashboard + Genie space | ⏳ Not started |
+
+> ⚠️ **Only bronze has actually run in the workspace.** Silver, gold, the sales
+> fact and the row filters exist as code and pass an offline logic check
+> (`pidilite_demo/tests/verify_access_map_logic.py`), but have never been
+> executed against Spark or Unity Catalog. Treat every row below bronze as
+> unverified until `sql/02_verify_rls.sql` checks 1–4 pass.
 
 ## Architecture
 
@@ -45,8 +51,35 @@ Silver: pidilite_demo.silver.dim_*        (cleansed + validated)
         pidilite_demo.silver.*_quarantine   (rows that failed validation)
         │
         ▼
-Gold:   pidilite_demo.gold.*              (not yet built)
+Gold:   pidilite_demo.gold.dim_* / fact_sales_transaction
+        pidilite_demo.gold.access_map_customer     (847 rows)
+        pidilite_demo.gold.access_map_field_team   (119 rows)
+        │  row filters keyed on current_user()
+        ▼
+        AI/BI Dashboard + Genie space (not yet built)
 ```
+
+### Row-level security
+
+Entitlements are **flattened once** into `gold.access_map_*` so the row filter
+is a cheap `EXISTS` lookup rather than a recursive walk up the management chain
+on every query. Two rules hold the design together:
+
+- **Gold tables are leaf nodes.** Every read in `gold.py` comes from *silver*,
+  never from another gold table. Row filters are attached to gold tables, and
+  the pipeline's own service identity is not in the access map — so a gold→gold
+  read would see zero rows and silently publish an empty table. Reading silver
+  makes that impossible by construction rather than by remembering not to do it.
+- **The maps are derived, never hand-maintained.** They are built from the
+  management chain already on `dim_field_team`, so a promotion or territory
+  reassignment rescopes every dashboard on the next pipeline run, with no
+  permission tickets. A hand-kept map drifts from the org chart, and drift in an
+  access map is a silent security bug.
+
+`field_team_code` alone is **not** a key — the same code exists under both the
+Sales and MDI chains with different managers, so every entitlement carries
+`hierarchy_type` alongside it. `dim_person` and `dim_division` are deliberately
+left unfiltered (see the reasoning inline in `sql/01_row_filters.sql`).
 
 Bronze and silver run as **one pipeline** with two source files
 (`src/pidilite_demo/bronze.py`, `src/pidilite_demo/silver.py`) so Lakeflow
@@ -92,7 +125,13 @@ pidilite_demo/
 ├── resources/pidilite_demo.pipeline.yml    # pipeline resource definition
 ├── src/pidilite_demo/
 │   ├── bronze.py                           # Auto Loader ingestion, one stream per entity
-│   └── silver.py                           # generic cleansing + quarantine framework
+│   ├── silver.py                           # generic cleansing + quarantine framework
+│   └── gold.py                             # conformed model + derived access maps
+├── sql/
+│   ├── 01_row_filters.sql                  # filter functions, ALTER, grants
+│   └── 02_verify_rls.sql                   # the 4 checks + demo queries
+├── tests/
+│   └── verify_access_map_logic.py          # offline entitlement-algebra check
 ├── data_generation/
 │   ├── generate_dims.py                    # Faker-based dim generator
 │   └── generate_sales.py                   # fact generator (reads the dim CSVs)
@@ -162,6 +201,37 @@ so bronze re-reads everything from scratch:
 ```bash
 databricks bundle run pidilite_demo_pipeline --full-refresh-all --profile <profile> -t dev
 ```
+
+## Row-level security setup
+
+After the pipeline has published gold at least once:
+
+```bash
+# 1. filter functions + attach + grants
+#    (run the file in a SQL editor, or split it into statements for the API)
+
+# 2. verify BEFORE building anything on top - a permission bug found later is
+#    indistinguishable from a dashboard bug
+#    sql/02_verify_rls.sql, checks 1-4
+```
+
+Check 2 is the load-bearing one: the filters are attached by an external
+`ALTER` while Lakeflow owns the gold tables, so confirm they survive a
+`bundle deploy` + pipeline update. If they do not, declare the filter inside the
+pipeline's own table definition, or move it onto consumption views over gold —
+do not just re-run the script after every deploy.
+
+The entitlement algebra can be checked with no workspace at all:
+
+```bash
+python3 pidilite_demo/tests/verify_access_map_logic.py
+```
+
+It asserts containment (Master ⊆ RA1 ⊆ RA2 ⊆ Head Office), that no customer
+resolves to both management chains, that every real Master has at least one
+customer (an empty dashboard for a persona kills the live demo), and that a
+roster row with no usable email gets no entitlement. It proves none of Unity
+Catalog's enforcement — that is what `02_verify_rls.sql` is for.
 
 ## License
 
