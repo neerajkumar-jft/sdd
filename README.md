@@ -1,77 +1,54 @@
-# Pidilite Capability Demo
+# Pidilite Sales Hierarchy Data Platform
 
-Synthetic-data build for a time-boxed Databricks capability demo for Pidilite
-Industries — proving row-level security, an AI/BI dashboard, a Genie space,
-Lakebase OLTP comments, and a Salesforce sync job, entirely on generated data
-modeled after the client's real sample. This is explicitly **not** the
-production build; see the companion Use Case document for the two-phase
-model.
-
-## Status
-
-| Layer | Status |
-|---|---|
-| Data generation (Faker, seeded from client sample) | ✅ Done |
-| Bronze (Auto Loader ingestion) | ✅ Done |
-| Silver (cleansing, validation, quarantine) | ✅ Done |
-| Gold (conformed dims + `access_mapping`) | ⏳ Not started |
-| Row-level security | ⏳ Not started |
-| `fact_sales_transaction` | ⏳ Not started |
-| Lakebase OLTP comments | ⏳ Not started |
-| Salesforce sync | ⏳ Not started |
-| AI/BI Dashboard + Genie space | ⏳ Not started |
+A Unity Catalog-governed data pipeline that ingests and conforms Pidilite's
+field-sales organization data — divisions, the sales management hierarchy,
+field teams, and the customer/dealer network — into a clean, validated set of
+dimension tables ready for downstream access control, analytics, and
+reporting.
 
 ## Architecture
 
-One [Lakeflow Declarative Pipeline](https://docs.databricks.com/aws/en/ldp/)
-(formerly DLT), deployed as a [Databricks Asset
-Bundle](https://docs.databricks.com/aws/en/dev-tools/bundles/), publishing to
-multiple schemas in a single Unity Catalog catalog:
+A single [Lakeflow Declarative Pipeline](https://docs.databricks.com/aws/en/ldp/),
+deployed as a [Databricks Asset Bundle](https://docs.databricks.com/aws/en/dev-tools/bundles/),
+implementing a medallion architecture across multiple schemas in one Unity
+Catalog catalog:
 
 ```
-CSV (Faker-generated, seeded from the client sample)
+Source files (division, person, field_team, customer)
         │
         ▼
 Volume: pidilite_demo.bronze.landing/{division,person,field_team,customer}/
-        │  Auto Loader (cloudFiles), one stream per entity
+        │  Auto Loader (cloudFiles), one incremental stream per entity
         ▼
-Bronze: pidilite_demo.bronze.raw_*        (all STRING, no transformation)
-        │  generic cleansing: rename map, trim, canonicalize enums,
-        │  safe casts, dedupe, join-based FK checks
+Bronze: pidilite_demo.bronze.raw_*        (raw, schema-preserved, no transformation)
+        │  column rename/normalization, whitespace trimming, enum
+        │  canonicalization, safe type casting, dedupe, referential
+        │  integrity checks
         ▼
-Silver: pidilite_demo.silver.dim_*        (cleansed + validated)
-        pidilite_demo.silver.dim_*_quarantine   (rows that failed validation)
-        │
-        ▼
-Gold:   pidilite_demo.gold.*              (not yet built)
+Silver: pidilite_demo.silver.dim_*             (cleansed, validated)
+        pidilite_demo.silver.dim_*_quarantine  (rows failing validation, held for review)
 ```
 
 Bronze and silver run as **one pipeline** with two source files
-(`src/pidilite_demo/bronze.py`, `src/pidilite_demo/silver.py`) so Lakeflow
-resolves the dependency DAG and staleness tracking automatically, instead of
-manually sequencing separate pipelines. Silver splits every entity into a
-`dim_*` table and a paired `dim_*_quarantine` table rather than failing the
-whole pipeline on a bad row (`expect_or_fail` is a footgun for a live demo).
+(`src/pidilite_demo/bronze.py`, `src/pidilite_demo/silver.py`), so Lakeflow
+resolves the dependency DAG and staleness tracking automatically end to end.
+Every entity publishes a clean table alongside a paired quarantine table, so
+bad records are visible and inspectable rather than silently dropped or
+failing the whole pipeline run.
 
 ## Data model
 
-Four dimension tables, modeled on the client's real sample and Pidilite's
-actual field-sales org structure:
-
 - **`dim_division`** — top-level business line (e.g. Consumer & Bazaar).
-- **`dim_person`** — internal sales org roster (Territory/Area Sales Manager
-  → Regional/Zonal Sales Manager → National Sales Manager → Head Office).
-  Carries `user_email`, the key row-level security will be built on.
-- **`dim_field_team`** — a territory, with its Master/RA1/RA2 management
-  chain. The same `field_team_code` can legitimately appear twice, once under
-  `hierarchy_type = 'Sales Hierarchy'` and once under `'MDI Hierarchy'`, each
-  with a different management chain — this is preserved from the real sample,
-  not an error.
-- **`dim_customer`** — dealers/retailers being sold to (never log in, no
-  `user_email`).
+- **`dim_person`** — the field-sales org roster (Territory/Area Sales Manager
+  → Regional/Zonal Sales Manager → National Sales Manager → Head Office),
+  keyed by `user_email` for downstream access control.
+- **`dim_field_team`** — a sales territory with its Master/RA1/RA2 management
+  chain. A `field_team_code` can legitimately appear under both
+  `hierarchy_type = 'Sales Hierarchy'` and `'MDI Hierarchy'`, each with its
+  own management chain.
+- **`dim_customer`** — the dealer/retailer network served by each field team.
 
-See `pidilite_demo/data_generation/generate_dims.py` for exact volumes and
-generation logic.
+Generation logic and volumes are in `pidilite_demo/data_generation/generate_dims.py`.
 
 ## Repo layout
 
@@ -81,10 +58,10 @@ pidilite_demo/
 ├── resources/pidilite_demo.pipeline.yml    # pipeline resource definition
 ├── src/pidilite_demo/
 │   ├── bronze.py                           # Auto Loader ingestion, one stream per entity
-│   └── silver.py                           # generic cleansing + quarantine framework
+│   └── silver.py                           # cleansing, canonicalization, quarantine framework
 ├── data_generation/
-│   └── generate_dims.py                    # Faker-based synthetic data generator
-└── sample_data/                            # generated CSVs, landed into the bronze volume
+│   └── generate_dims.py                    # synthetic data generator, seeded from client sample
+└── sample_data/                            # generated source files, landed into the bronze volume
     ├── division/  ├── person/  ├── field_team/  └── customer/
 ```
 
@@ -97,9 +74,8 @@ pidilite_demo/
   commands are unaffected by this.
 - A configured CLI profile with access to the target workspace (see
   `~/.databrickscfg` — `databricks auth login --host <workspace-url> --profile <name>`).
-- Unity Catalog must allow catalog creation via the workspace UI in this
-  account (`pidilite_demo` catalog was created there — the CLI/API path is
-  blocked for default-storage catalogs on this metastore).
+- A Unity Catalog catalog named `pidilite_demo` (created via the workspace UI
+  on metastores that block catalog creation with default storage over the CLI/API).
 
 ## Deploy
 
@@ -122,7 +98,7 @@ To regenerate the seed data (deterministic, same seed → same output):
 python3 pidilite_demo/data_generation/generate_dims.py
 ```
 
-Then land the CSVs into the bronze volume before running the pipeline:
+Then land the source files into the bronze volume before running the pipeline:
 
 ```bash
 databricks fs cp <entity>/<entity>.csv \
