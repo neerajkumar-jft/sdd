@@ -5,7 +5,7 @@ LANDING_ROOT = "/Volumes/pidilite_demo/bronze/landing"
 
 # one Auto Loader stream per entity - each source folder is its own
 # checkpoint/schema-location, no transformation, everything lands as STRING
-ENTITIES = ["division", "person", "field_team", "customer"]
+ENTITIES = ["division", "person", "field_team", "customer", "sales_transaction"]
 
 
 def _make_bronze_table(entity: str):

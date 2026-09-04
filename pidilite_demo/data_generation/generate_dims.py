@@ -13,7 +13,7 @@ random.seed(42)
 Faker.seed(42)
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "sample_data")
-for sub in ("division", "person", "field_team", "customer"):
+for sub in ("division", "person", "field_team", "customer", "sales_transaction"):
     os.makedirs(os.path.join(OUT_DIR, sub), exist_ok=True)
 
 # ---------- dim_division ----------
@@ -110,6 +110,7 @@ INDIAN_CITIES = [
 ]
 BUSINESS_SUFFIXES = ["Hardware Store", "Paints & Hardware", "Traders", "Enterprises", "Building Materials", "Agencies"]
 
+customers = []  # (customer_code, customer_name, division_id, field_team_code, city, state)
 with open(os.path.join(OUT_DIR, "customer", "customer.csv"), "w", newline="") as f:
     w = csv.writer(f)
     w.writerow(["customer_code", "customer_name", "division_id", "field_team_code", "city", "state"])
@@ -117,6 +118,46 @@ with open(os.path.join(OUT_DIR, "customer", "customer.csv"), "w", newline="") as
         ft = random.choice(field_teams)
         city, state = random.choice(INDIAN_CITIES)
         name = f"{fake.last_name()} {random.choice(BUSINESS_SUFFIXES)}"
-        w.writerow([code, name, ft[1], ft[0], city, state])
+        row = (code, name, ft[1], ft[0], city, state)
+        customers.append(row)
+        w.writerow(row)
 
-print(f"divisions={len(divisions)} field_teams={len(field_teams)} persons={len(persons)} customers=120")
+# ---------- fact_sales_transaction ----------
+# Not present in the client sample at all - fully invented on top of the
+# hierarchy, since the actual ask is a sales dashboard, not just a roster.
+import datetime
+
+PRODUCT_UNIT_PRICE = {
+    "Adhesives": 120,
+    "Sealants": 250,
+    "Construction Chemicals": 180,
+    "Art & Craft": 60,
+    "Industrial Resins": 500,
+}
+
+# a field_team_code can map to two rows (Sales + MDI hierarchy) with different
+# Masters; dim_customer doesn't carry hierarchy_type (same ambiguity as the
+# client sample), so default to the Sales Hierarchy master when both exist.
+master_by_field_team = {}
+for code, _did, htype, master_id, _ra1, _ra2 in field_teams:
+    if code not in master_by_field_team or htype == "Sales Hierarchy":
+        master_by_field_team[code] = master_id
+
+TXN_COUNT = 4000
+WINDOW_DAYS = 450  # ~15 months
+END_DATE = datetime.date(2026, 9, 4)
+
+with open(os.path.join(OUT_DIR, "sales_transaction", "sales_transaction.csv"), "w", newline="") as f:
+    w = csv.writer(f)
+    w.writerow(["transaction_id", "customer_code", "transaction_date", "product_category", "quantity", "revenue", "salesperson_id"])
+    for i in range(1, TXN_COUNT + 1):
+        cust = random.choice(customers)
+        category = random.choice(list(PRODUCT_UNIT_PRICE))
+        quantity = random.randint(10, 500)
+        unit_price = PRODUCT_UNIT_PRICE[category]
+        revenue = round(quantity * unit_price * random.uniform(0.9, 1.1), 2)
+        txn_date = END_DATE - datetime.timedelta(days=random.randint(0, WINDOW_DAYS))
+        salesperson_id = master_by_field_team.get(cust[3], "")
+        w.writerow([f"TXN{i:06d}", cust[0], txn_date.isoformat(), category, quantity, revenue, salesperson_id])
+
+print(f"divisions={len(divisions)} field_teams={len(field_teams)} persons={len(persons)} customers=120 sales_transactions={TXN_COUNT}")

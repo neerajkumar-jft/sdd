@@ -1,7 +1,7 @@
 import dlt
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from pyspark.sql.types import IntegerType
+from pyspark.sql.types import IntegerType, DecimalType, DateType
 
 # bronze tables are read via dlt.read() by their short name (raw_division etc.)
 # since bronze.py and silver.py are libraries on the SAME pipeline - this is
@@ -40,6 +40,7 @@ RENAME_MAPS = {
     "person": {},
     "field_team": {"tzxntyoe": "hierarchy_type"},  # known typo in the client sample
     "customer": {},
+    "sales_transaction": {},
 }
 
 EMAIL_RE = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -89,6 +90,17 @@ def safe_int(df: DataFrame, column: str) -> DataFrame:
     return df.withColumn(column, F.col(column).cast(IntegerType())) if column in df.columns else df
 
 
+def safe_decimal(df: DataFrame, column: str, precision: int = 18, scale: int = 2) -> DataFrame:
+    """Cast to DECIMAL without blowing up the run on a bad value - same
+    non-crashing pattern as safe_int."""
+    return df.withColumn(column, F.col(column).cast(DecimalType(precision, scale))) if column in df.columns else df
+
+
+def safe_date(df: DataFrame, column: str) -> DataFrame:
+    """Cast to DATE without blowing up the run on a bad/unparseable value."""
+    return df.withColumn(column, F.col(column).cast(DateType())) if column in df.columns else df
+
+
 def canonicalize(df: DataFrame, column: str, canonical_map: dict) -> DataFrame:
     """
     Normalize free-text enum drift (casing/underscores/hyphens) to one
@@ -106,7 +118,10 @@ def canonicalize(df: DataFrame, column: str, canonical_map: dict) -> DataFrame:
 def mark_fk_valid(df: DataFrame, fk_col: str, ref_df: DataFrame, ref_col: str, flag_col: str) -> DataFrame:
     """Referential check via join (not a hardcoded id list) - flags rows whose
     FK doesn't exist in the referenced table. Null FK isn't flagged here;
-    that's the job of a separate not-null check so failure reasons don't overlap."""
+    that's the job of a separate not-null check so failure reasons don't overlap.
+    flag_col must start with '__' - flag_quarantine drops every such internal
+    scratch column before publish, so it never leaks into the published table."""
+    assert flag_col.startswith("__"), "mark_fk_valid flag_col must start with '__' so it gets dropped before publish"
     ref = ref_df.select(F.col(ref_col).alias("__ref_key")).distinct()
     return (
         df.join(ref, df[fk_col] == ref["__ref_key"], "left")
@@ -127,20 +142,26 @@ def flag_quarantine(df: DataFrame, checks: list) -> DataFrame:
     df = df.withColumn("_quarantine_reasons", F.array(*case_exprs))
     df = df.withColumn("_quarantine_reasons", F.expr("filter(_quarantine_reasons, x -> x is not null)"))
     df = df.withColumn("_is_valid", F.size(F.col("_quarantine_reasons")) == 0)
-    return df
+    # drop internal scratch columns (e.g. mark_fk_valid's '__*_fk_valid' flags)
+    # so they never leak into the published table.
+    scratch_cols = [c for c in df.columns if c.startswith("__")]
+    return df.drop(*scratch_cols) if scratch_cols else df
 
 
-def publish(entity: str, clean_fn, comment: str):
+def publish(table_name: str, clean_fn, comment: str):
     """Runs clean_fn once, publishes a valid table + a paired quarantine table.
+    table_name is the full silver table name (e.g. 'dim_division',
+    'fact_sales_transaction') - callers control the prefix, dim_/fact_/etc.
     ponytail: recomputes cleaning per call site (valid vs quarantine) - fine
-    at demo volumes (~150 rows); cache the staging DF if this needs to scale."""
+    at demo volumes; cache the staging DF if this needs to scale to millions
+    of fact rows."""
 
-    @dlt.table(name=f"pidilite_demo.silver.dim_{entity}", comment=f"Silver: cleansed, validated {comment}.")
+    @dlt.table(name=f"pidilite_demo.silver.{table_name}", comment=f"Silver: cleansed, validated {comment}.")
     def _valid():
         return clean_fn().filter("_is_valid").drop("_is_valid", "_quarantine_reasons")
 
     @dlt.table(
-        name=f"pidilite_demo.silver.dim_{entity}_quarantine",
+        name=f"pidilite_demo.silver.{table_name}_quarantine",
         comment=f"Silver: {comment} that failed validation - kept for inspection, not dropped silently.",
     )
     def _quarantine():
@@ -207,7 +228,7 @@ def _clean_field_team() -> DataFrame:
     df = df.dropDuplicates(["field_team_code", "hierarchy_type"])
 
     division_ref = _clean_division().filter("_is_valid")
-    df = mark_fk_valid(df, "division_id", division_ref, "division_id", "_division_fk_valid")
+    df = mark_fk_valid(df, "division_id", division_ref, "division_id", "__division_fk_valid")
 
     return flag_quarantine(
         df,
@@ -216,7 +237,7 @@ def _clean_field_team() -> DataFrame:
             ("division_id_is_null", F.col("division_id").isNull()),
             ("hierarchy_type_is_null", F.col("hierarchy_type").isNull()),
             ("master_person_id_is_null", F.col("master_person_id").isNull()),
-            ("division_id_orphan_fk", ~F.col("_division_fk_valid")),
+            ("division_id_orphan_fk", ~F.col("__division_fk_valid")),
         ],
     )
 
@@ -234,7 +255,7 @@ def _clean_customer() -> DataFrame:
     df = df.dropDuplicates(["customer_code"])
 
     field_team_ref = _clean_field_team().filter("_is_valid")
-    df = mark_fk_valid(df, "field_team_code", field_team_ref, "field_team_code", "_field_team_fk_valid")
+    df = mark_fk_valid(df, "field_team_code", field_team_ref, "field_team_code", "__field_team_fk_valid")
 
     return flag_quarantine(
         df,
@@ -242,12 +263,46 @@ def _clean_customer() -> DataFrame:
             ("customer_code_is_null", F.col("customer_code").isNull()),
             ("customer_name_is_null", F.col("customer_name").isNull() | (F.col("customer_name") == "")),
             ("field_team_code_is_null", F.col("field_team_code").isNull()),
-            ("field_team_code_orphan_fk", ~F.col("_field_team_fk_valid")),
+            ("field_team_code_orphan_fk", ~F.col("__field_team_fk_valid")),
         ],
     )
 
 
-publish("division", _clean_division, "division rows")
-publish("person", _clean_person, "person/roster rows")
-publish("field_team", _clean_field_team, "field team rows")
-publish("customer", _clean_customer, "customer rows")
+def _clean_sales_transaction() -> DataFrame:
+    df = dlt.read("pidilite_demo.bronze.raw_sales_transaction")
+    df = normalize_column_names(df)
+    df = apply_rename_map(df, RENAME_MAPS["sales_transaction"])
+    df = trim_all_strings(df)
+    df = safe_int(df, "customer_code")
+    df = safe_date(df, "transaction_date")
+    df = safe_decimal(df, "quantity", precision=12, scale=2)
+    df = safe_decimal(df, "revenue", precision=18, scale=2)
+    if "salesperson_id" in df.columns:
+        df = upper_col(df, "salesperson_id")
+    df = df.dropDuplicates(["transaction_id"])
+
+    customer_ref = _clean_customer().filter("_is_valid")
+    df = mark_fk_valid(df, "customer_code", customer_ref, "customer_code", "__customer_fk_valid")
+
+    person_ref = _clean_person().filter("_is_valid")
+    df = mark_fk_valid(df, "salesperson_id", person_ref, "person_id", "__salesperson_fk_valid")
+
+    return flag_quarantine(
+        df,
+        [
+            ("transaction_id_is_null", F.col("transaction_id").isNull()),
+            ("customer_code_is_null", F.col("customer_code").isNull()),
+            ("transaction_date_is_null", F.col("transaction_date").isNull()),
+            ("quantity_not_positive", F.col("quantity").isNull() | (F.col("quantity") <= 0)),
+            ("revenue_not_positive", F.col("revenue").isNull() | (F.col("revenue") <= 0)),
+            ("customer_code_orphan_fk", ~F.col("__customer_fk_valid")),
+            ("salesperson_id_orphan_fk", ~F.col("__salesperson_fk_valid")),
+        ],
+    )
+
+
+publish("dim_division", _clean_division, "division rows")
+publish("dim_person", _clean_person, "person/roster rows")
+publish("dim_field_team", _clean_field_team, "field team rows")
+publish("dim_customer", _clean_customer, "customer rows")
+publish("fact_sales_transaction", _clean_sales_transaction, "sales transaction rows")
