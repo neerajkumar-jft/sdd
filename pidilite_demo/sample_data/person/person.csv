@@ -1,0 +1,30 @@
+person_id,person_name,role,division_id,hierarchy_type,user_email
+P001,Aryan Maharaj,National Sales Manager,,Sales Hierarchy,aryan.maharaj@pidilitedemo.com
+P002,Udant Dewan,National Sales Manager,,MDI Hierarchy,udant.dewan@pidilitedemo.com
+P003,Gagan Sami,Regional/Zonal Sales Manager,10,Sales Hierarchy,gagan.sami@pidilitedemo.com
+P004,Ayushman Chander,Territory/Area Sales Manager,10,Sales Hierarchy,ayushman.chander@pidilitedemo.com
+P005,Viraj Tiwari,Territory/Area Sales Manager,10,Sales Hierarchy,viraj.tiwari@pidilitedemo.com
+P006,Rushil Saini,Territory/Area Sales Manager,10,Sales Hierarchy,rushil.saini@pidilitedemo.com
+P007,Saumya Mall,Regional/Zonal Sales Manager,10,MDI Hierarchy,saumya.mall@pidilitedemo.com
+P008,Nathaniel Sami,Territory/Area Sales Manager,10,MDI Hierarchy,nathaniel.sami@pidilitedemo.com
+P009,Arunima Dugal,Regional/Zonal Sales Manager,20,Sales Hierarchy,arunima.dugal@pidilitedemo.com
+P010,Gayathri Chaudry,Territory/Area Sales Manager,20,Sales Hierarchy,gayathri.chaudry@pidilitedemo.com
+P011,Lajita Chatterjee,Territory/Area Sales Manager,20,Sales Hierarchy,lajita.chatterjee@pidilitedemo.com
+P012,Hemangini Lalla,Territory/Area Sales Manager,20,Sales Hierarchy,hemangini.lalla@pidilitedemo.com
+P013,Tripti Yadav,Regional/Zonal Sales Manager,20,MDI Hierarchy,tripti.yadav@pidilitedemo.com
+P014,Kritika Brar,Territory/Area Sales Manager,20,MDI Hierarchy,kritika.brar@pidilitedemo.com
+P015,Janaki Handa,Regional/Zonal Sales Manager,30,Sales Hierarchy,janaki.handa@pidilitedemo.com
+P016,Chakradev Kari,Territory/Area Sales Manager,30,Sales Hierarchy,chakradev.kari@pidilitedemo.com
+P017,Fariq Kaul,Territory/Area Sales Manager,30,Sales Hierarchy,fariq.kaul@pidilitedemo.com
+P018,Lajita Mall,Territory/Area Sales Manager,30,Sales Hierarchy,lajita.mall@pidilitedemo.com
+P019,Janya Gaba,Regional/Zonal Sales Manager,30,MDI Hierarchy,janya.gaba@pidilitedemo.com
+P020,Isha Kadakia,Territory/Area Sales Manager,30,MDI Hierarchy,isha.kadakia@pidilitedemo.com
+P021,Ekbal Garg,Regional/Zonal Sales Manager,40,Sales Hierarchy,ekbal.garg@pidilitedemo.com
+P022,Nihal Shere,Territory/Area Sales Manager,40,Sales Hierarchy,nihal.shere@pidilitedemo.com
+P023,Anamika Kanda,Territory/Area Sales Manager,40,Sales Hierarchy,anamika.kanda@pidilitedemo.com
+P024,Daksh Karnik,Territory/Area Sales Manager,40,Sales Hierarchy,daksh.karnik@pidilitedemo.com
+P025,Diya Rattan,Regional/Zonal Sales Manager,40,MDI Hierarchy,diya.rattan@pidilitedemo.com
+P026,Dominic Kakar,Territory/Area Sales Manager,40,MDI Hierarchy,dominic.kakar@pidilitedemo.com
+P027,Simon Tata,Head Office,,All,simon.tata@pidilitedemo.com
+P028,Tara Dhar,Head Office,,All,tara.dhar@pidilitedemo.com
+P029,Liam Koshy,Head Office,,All,liam.koshy@pidilitedemo.com

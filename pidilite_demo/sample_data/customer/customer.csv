@@ -1,0 +1,121 @@
+customer_code,customer_name,division_id,field_team_code,city,state
+1,Yohannan Agencies,10,WSSTTY3,Mumbai,Maharashtra
+2,Lall Paints & Hardware,30,WSSTTY7,Surat,Gujarat
+3,Sangha Hardware Store,20,WSSTTY4,Indore,Madhya Pradesh
+4,Rastogi Enterprises,10,WSSTTY3,Lucknow,Uttar Pradesh
+5,Pathak Hardware Store,10,WSSTTY2,Mumbai,Maharashtra
+6,Kanda Building Materials,20,WSSTTY6,Surat,Gujarat
+7,Devi Paints & Hardware,10,WSSTTY1,Jaipur,Rajasthan
+8,Upadhyay Enterprises,40,WSSTTY11,Surat,Gujarat
+9,Tak Paints & Hardware,30,WSSTTY7,Mumbai,Maharashtra
+10,Chand Traders,40,WSSTTY11,Chennai,Tamil Nadu
+11,Batta Traders,20,WSSTTY4,Surat,Gujarat
+12,Choudhary Enterprises,10,WSSTTY3,Pune,Maharashtra
+13,Dua Traders,10,WSSTTY3,Chennai,Tamil Nadu
+14,Dutta Agencies,30,WSSTTY7,Mumbai,Maharashtra
+15,Sami Hardware Store,40,WSSTTY12,Jaipur,Rajasthan
+16,Bhatt Building Materials,40,WSSTTY10,Pune,Maharashtra
+17,Rajan Building Materials,30,WSSTTY8,Kolkata,West Bengal
+18,Raj Paints & Hardware,30,WSSTTY9,Lucknow,Uttar Pradesh
+19,Sidhu Agencies,10,WSSTTY3,Mumbai,Maharashtra
+20,Wadhwa Hardware Store,20,WSSTTY6,Bengaluru,Karnataka
+21,Krishnamurthy Enterprises,20,WSSTTY6,Pune,Maharashtra
+22,Apte Agencies,30,WSSTTY7,Delhi,Delhi
+23,Contractor Traders,30,WSSTTY9,Ahmedabad,Gujarat
+24,Yadav Agencies,30,WSSTTY9,Surat,Gujarat
+25,Loke Agencies,30,WSSTTY7,Indore,Madhya Pradesh
+26,Oak Agencies,10,WSSTTY3,Lucknow,Uttar Pradesh
+27,Choudhury Agencies,20,WSSTTY5,Jaipur,Rajasthan
+28,Memon Enterprises,20,WSSTTY6,Ahmedabad,Gujarat
+29,Saran Agencies,40,WSSTTY10,Bengaluru,Karnataka
+30,Dugar Traders,20,WSSTTY6,Kolkata,West Bengal
+31,Setty Hardware Store,10,WSSTTY2,Surat,Gujarat
+32,Aggarwal Traders,30,WSSTTY9,Hyderabad,Telangana
+33,Lall Building Materials,10,WSSTTY3,Surat,Gujarat
+34,Tella Agencies,30,WSSTTY9,Surat,Gujarat
+35,Gokhale Agencies,40,WSSTTY12,Hyderabad,Telangana
+36,Tripathi Traders,40,WSSTTY12,Ahmedabad,Gujarat
+37,Cherian Agencies,20,WSSTTY4,Surat,Gujarat
+38,Misra Building Materials,30,WSSTTY7,Indore,Madhya Pradesh
+39,Tripathi Enterprises,40,WSSTTY11,Lucknow,Uttar Pradesh
+40,Issac Paints & Hardware,30,WSSTTY9,Surat,Gujarat
+41,Dua Hardware Store,40,WSSTTY12,Pune,Maharashtra
+42,Prakash Agencies,10,WSSTTY3,Ahmedabad,Gujarat
+43,Edwin Enterprises,20,WSSTTY5,Kolkata,West Bengal
+44,Zacharia Enterprises,10,WSSTTY3,Hyderabad,Telangana
+45,Wali Traders,40,WSSTTY12,Jaipur,Rajasthan
+46,Acharya Agencies,10,WSSTTY1,Kolkata,West Bengal
+47,Naik Building Materials,10,WSSTTY3,Kolkata,West Bengal
+48,Suresh Traders,30,WSSTTY7,Kolkata,West Bengal
+49,Bahl Enterprises,10,WSSTTY3,Bengaluru,Karnataka
+50,Choudhury Hardware Store,20,WSSTTY5,Delhi,Delhi
+51,Patil Paints & Hardware,30,WSSTTY7,Jaipur,Rajasthan
+52,Mohanty Traders,10,WSSTTY3,Kolkata,West Bengal
+53,Khatri Traders,20,WSSTTY6,Ahmedabad,Gujarat
+54,Bhardwaj Building Materials,20,WSSTTY5,Jaipur,Rajasthan
+55,Khosla Traders,10,WSSTTY1,Lucknow,Uttar Pradesh
+56,Brar Hardware Store,40,WSSTTY12,Mumbai,Maharashtra
+57,Chada Paints & Hardware,30,WSSTTY9,Bengaluru,Karnataka
+58,Sunder Building Materials,10,WSSTTY2,Surat,Gujarat
+59,Biswas Agencies,10,WSSTTY3,Pune,Maharashtra
+60,Walia Building Materials,40,WSSTTY12,Pune,Maharashtra
+61,Dass Agencies,20,WSSTTY4,Ahmedabad,Gujarat
+62,Dave Paints & Hardware,40,WSSTTY12,Jaipur,Rajasthan
+63,Soman Building Materials,30,WSSTTY7,Jaipur,Rajasthan
+64,Gandhi Building Materials,40,WSSTTY11,Surat,Gujarat
+65,Lanka Traders,20,WSSTTY6,Indore,Madhya Pradesh
+66,Wable Agencies,40,WSSTTY10,Kolkata,West Bengal
+67,Sampath Building Materials,30,WSSTTY9,Delhi,Delhi
+68,Kakar Paints & Hardware,40,WSSTTY12,Pune,Maharashtra
+69,Zacharia Traders,20,WSSTTY6,Pune,Maharashtra
+70,Iyer Building Materials,10,WSSTTY1,Lucknow,Uttar Pradesh
+71,Muni Paints & Hardware,20,WSSTTY6,Lucknow,Uttar Pradesh
+72,Rastogi Agencies,10,WSSTTY1,Pune,Maharashtra
+73,Prakash Hardware Store,10,WSSTTY2,Surat,Gujarat
+74,Sarma Hardware Store,10,WSSTTY2,Chennai,Tamil Nadu
+75,Varughese Agencies,20,WSSTTY6,Bengaluru,Karnataka
+76,Seth Building Materials,40,WSSTTY12,Surat,Gujarat
+77,Dara Building Materials,20,WSSTTY4,Indore,Madhya Pradesh
+78,Kota Enterprises,40,WSSTTY12,Surat,Gujarat
+79,Kar Hardware Store,40,WSSTTY11,Surat,Gujarat
+80,Bhatt Enterprises,10,WSSTTY3,Kolkata,West Bengal
+81,Nigam Enterprises,30,WSSTTY9,Hyderabad,Telangana
+82,Bail Hardware Store,40,WSSTTY12,Indore,Madhya Pradesh
+83,Karpe Enterprises,10,WSSTTY3,Mumbai,Maharashtra
+84,Kannan Paints & Hardware,30,WSSTTY9,Pune,Maharashtra
+85,Amble Building Materials,20,WSSTTY6,Surat,Gujarat
+86,Bobal Enterprises,40,WSSTTY12,Ahmedabad,Gujarat
+87,Bhargava Enterprises,20,WSSTTY5,Bengaluru,Karnataka
+88,Karnik Enterprises,20,WSSTTY6,Pune,Maharashtra
+89,Bir Agencies,10,WSSTTY3,Mumbai,Maharashtra
+90,Balay Paints & Hardware,10,WSSTTY1,Pune,Maharashtra
+91,Narayanan Enterprises,20,WSSTTY5,Hyderabad,Telangana
+92,Bobal Enterprises,40,WSSTTY12,Surat,Gujarat
+93,Varkey Enterprises,10,WSSTTY2,Ahmedabad,Gujarat
+94,Khanna Traders,10,WSSTTY1,Hyderabad,Telangana
+95,Mallick Enterprises,40,WSSTTY12,Bengaluru,Karnataka
+96,Sunder Paints & Hardware,40,WSSTTY12,Ahmedabad,Gujarat
+97,Kala Hardware Store,30,WSSTTY8,Surat,Gujarat
+98,Zacharia Traders,10,WSSTTY2,Indore,Madhya Pradesh
+99,Deo Building Materials,10,WSSTTY2,Mumbai,Maharashtra
+100,Solanki Building Materials,40,WSSTTY12,Jaipur,Rajasthan
+101,Kibe Building Materials,20,WSSTTY5,Mumbai,Maharashtra
+102,Solanki Hardware Store,10,WSSTTY3,Ahmedabad,Gujarat
+103,Ray Paints & Hardware,10,WSSTTY3,Kolkata,West Bengal
+104,Gupta Building Materials,40,WSSTTY10,Pune,Maharashtra
+105,Chandra Building Materials,20,WSSTTY6,Lucknow,Uttar Pradesh
+106,Chatterjee Hardware Store,10,WSSTTY2,Lucknow,Uttar Pradesh
+107,Sankar Building Materials,40,WSSTTY11,Kolkata,West Bengal
+108,Pandya Paints & Hardware,30,WSSTTY9,Bengaluru,Karnataka
+109,Sampath Traders,30,WSSTTY9,Surat,Gujarat
+110,Roy Agencies,40,WSSTTY10,Ahmedabad,Gujarat
+111,Sibal Traders,30,WSSTTY8,Delhi,Delhi
+112,Bhagat Enterprises,10,WSSTTY3,Mumbai,Maharashtra
+113,Chaudhari Building Materials,10,WSSTTY3,Pune,Maharashtra
+114,Bhat Traders,20,WSSTTY6,Jaipur,Rajasthan
+115,Rau Hardware Store,20,WSSTTY4,Chennai,Tamil Nadu
+116,Nori Traders,20,WSSTTY6,Chennai,Tamil Nadu
+117,Chopra Building Materials,20,WSSTTY5,Delhi,Delhi
+118,Kothari Agencies,30,WSSTTY8,Lucknow,Uttar Pradesh
+119,Handa Building Materials,10,WSSTTY1,Kolkata,West Bengal
+120,Gupta Hardware Store,30,WSSTTY8,Kolkata,West Bengal

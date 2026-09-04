@@ -1,0 +1,17 @@
+field_team_code,division_id,hierarchy_type,master_person_id,ra1_person_id,ra2_person_id
+WSSTTY1,10,Sales Hierarchy,P004,P003,P001
+WSSTTY2,10,Sales Hierarchy,P005,P003,P001
+WSSTTY3,10,Sales Hierarchy,P006,P003,P001
+WSSTTY3,10,MDI Hierarchy,P008,P007,P002
+WSSTTY4,20,Sales Hierarchy,P010,P009,P001
+WSSTTY5,20,Sales Hierarchy,P011,P009,P001
+WSSTTY6,20,Sales Hierarchy,P012,P009,P001
+WSSTTY6,20,MDI Hierarchy,P014,P013,P002
+WSSTTY7,30,Sales Hierarchy,P016,P015,P001
+WSSTTY8,30,Sales Hierarchy,P017,P015,P001
+WSSTTY9,30,Sales Hierarchy,P018,P015,P001
+WSSTTY9,30,MDI Hierarchy,P020,P019,P002
+WSSTTY10,40,Sales Hierarchy,P022,P021,P001
+WSSTTY11,40,Sales Hierarchy,P023,P021,P001
+WSSTTY12,40,Sales Hierarchy,P024,P021,P001
+WSSTTY12,40,MDI Hierarchy,P026,P025,P002
