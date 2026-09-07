@@ -2,13 +2,27 @@
   "version": 2,
   "data_sources": {
     "tables": [
-      { "identifier": "pidilite_demo.gold.dim_division" },
-      { "identifier": "pidilite_demo.gold.dim_person" },
-      { "identifier": "pidilite_demo.gold.dim_field_team" },
-      { "identifier": "pidilite_demo.gold.dim_customer" },
-      { "identifier": "pidilite_demo.gold.fact_sales_transaction" },
-      { "identifier": "pidilite_demo.gold.agg_sales_by_territory_month" },
-      { "identifier": "pidilite_demo.gold.agg_dealer_scorecard" }
+      {
+        "identifier": "pidilite_demo.gold.agg_dealer_scorecard"
+      },
+      {
+        "identifier": "pidilite_demo.gold.agg_sales_by_territory_month"
+      },
+      {
+        "identifier": "pidilite_demo.gold.dim_customer"
+      },
+      {
+        "identifier": "pidilite_demo.gold.dim_division"
+      },
+      {
+        "identifier": "pidilite_demo.gold.dim_field_team"
+      },
+      {
+        "identifier": "pidilite_demo.gold.dim_person"
+      },
+      {
+        "identifier": "pidilite_demo.gold.fact_sales_transaction"
+      }
     ]
   },
   "instructions": {
@@ -121,7 +135,8 @@
           "competitor data in this space. If a question needs one of those, say plainly",
           "that the metric is not available rather than substituting revenue for it or",
           "estimating. Say what IS available that comes closest."
-        ]
+        ],
+        "id": "008dcc1f4a06544b3c8929d6e992a135"
       }
     ],
     "example_question_sqls": [
@@ -146,7 +161,8 @@
           "GROUP BY c.customer_code, c.customer_name, c.city, c.field_team_code, c.hierarchy_type",
           "ORDER BY revenue DESC",
           "LIMIT 5"
-        ]
+        ],
+        "id": "0039b5904ba25248d99a86102f74327c"
       },
       {
         "question": [
@@ -165,7 +181,8 @@
           "WHERE month > add_months(",
           "        (SELECT max(month) FROM pidilite_demo.gold.agg_sales_by_territory_month), -12)",
           "ORDER BY field_team_code, hierarchy_type, month"
-        ]
+        ],
+        "id": "01399c5e4b5ed04e8ba67b0f92c8158f"
       },
       {
         "question": [
@@ -184,7 +201,8 @@
           "FROM pidilite_demo.gold.agg_dealer_scorecard",
           "WHERE is_dormant",
           "ORDER BY revenue_total DESC"
-        ]
+        ],
+        "id": "025e591f3765464ad385e69633dafbb6"
       },
       {
         "question": [
@@ -206,7 +224,8 @@
           "LEFT JOIN pidilite_demo.gold.dim_person r2 ON r2.person_id = ft.ra2_person_id",
           "WHERE ft.field_team_code = 'WSSTTY3'",
           "ORDER BY ft.hierarchy_type"
-        ]
+        ],
+        "id": "03d6a8300eab6d4b2b8533506f92bc76"
       },
       {
         "question": [
@@ -224,7 +243,8 @@
           "JOIN pidilite_demo.gold.dim_division d ON d.division_id   = c.division_id",
           "GROUP BY d.division_name, f.product_category",
           "ORDER BY revenue DESC"
-        ]
+        ],
+        "id": "043f6844f07fcd49d0bc576da784fd99"
       },
       {
         "question": [
@@ -239,7 +259,8 @@
           "       sum(f.revenue)                  AS revenue",
           "FROM pidilite_demo.gold.fact_sales_transaction f",
           "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code"
-        ]
+        ],
+        "id": "05b18b9101089144c9af812ba1b8004f"
       },
       {
         "question": [
@@ -255,23 +276,51 @@
           "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
           "GROUP BY c.hierarchy_type",
           "ORDER BY revenue DESC"
-        ]
+        ],
+        "id": "06aac55838ec7346b29a53c9c8170f0f"
       }
     ]
   },
   "config": {
     "sample_questions": [
-      { "question": ["What is my total revenue and how many dealers do I cover?"] },
-      { "question": ["Who are my top 5 dealers by revenue in the last quarter?"] },
-      { "question": ["Which of my dealers have gone quiet?"] },
-      { "question": ["How is each of my territories trending over the last 12 months?"] },
-      { "question": ["Break my revenue down by division and product category"] }
+      {
+        "question": [
+          "What is my total revenue and how many dealers do I cover?"
+        ],
+        "id": "00fab607ffb04c4b43b2c445ee6b7f72"
+      },
+      {
+        "question": [
+          "Who are my top 5 dealers by revenue in the last quarter?"
+        ],
+        "id": "01c6e85521dedf4c3e9f5c6e9d4cf139"
+      },
+      {
+        "question": [
+          "Which of my dealers have gone quiet?"
+        ],
+        "id": "02d25a8667a7714ff580f7244ad6d001"
+      },
+      {
+        "question": [
+          "How is each of my territories trending over the last 12 months?"
+        ],
+        "id": "037977a29626d547a6a2135e9fecb66d"
+      },
+      {
+        "question": [
+          "Break my revenue down by division and product category"
+        ],
+        "id": "04e08d23e766fc47d3b090f67c7b5b56"
+      }
     ]
   },
   "benchmarks": {
     "questions": [
       {
-        "question": ["What is my total revenue and how many dealers do I cover?"],
+        "question": [
+          "What is my total revenue and how many dealers do I cover?"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -283,10 +332,13 @@
               "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code"
             ]
           }
-        ]
+        ],
+        "id": "0009c2b6e9d4834fb88e7d4f55f1f3cf"
       },
       {
-        "question": ["Who are my top 5 dealers by revenue in the last quarter?"],
+        "question": [
+          "Who are my top 5 dealers by revenue in the last quarter?"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -301,10 +353,13 @@
               "LIMIT 5"
             ]
           }
-        ]
+        ],
+        "id": "018d5afd1794c44c6d94d6751001f331"
       },
       {
-        "question": ["Which dealers have gone quiet?"],
+        "question": [
+          "Which dealers have gone quiet?"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -315,10 +370,13 @@
               "ORDER BY revenue_total DESC"
             ]
           }
-        ]
+        ],
+        "id": "027b9cba5b1da34ca18bd183fb8f02f1"
       },
       {
-        "question": ["How many dormant dealers do I have?"],
+        "question": [
+          "How many dormant dealers do I have?"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -328,10 +386,13 @@
               "WHERE is_dormant"
             ]
           }
-        ]
+        ],
+        "id": "03453edc801a11472a807703af172970"
       },
       {
-        "question": ["How is each territory trending month by month over the last 12 months?"],
+        "question": [
+          "How is each territory trending month by month over the last 12 months?"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -343,10 +404,13 @@
               "ORDER BY field_team_code, hierarchy_type, month"
             ]
           }
-        ]
+        ],
+        "id": "04331e8b1cba844f689237d1d25b1ac2"
       },
       {
-        "question": ["Which month was my best by revenue?"],
+        "question": [
+          "Which month was my best by revenue?"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -359,10 +423,13 @@
               "LIMIT 1"
             ]
           }
-        ]
+        ],
+        "id": "050842cfec71364318a38d341369bf52"
       },
       {
-        "question": ["Break my revenue down by division"],
+        "question": [
+          "Break my revenue down by division"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -375,10 +442,13 @@
               "ORDER BY revenue DESC"
             ]
           }
-        ]
+        ],
+        "id": "06a43175abdb944e05afb3065f627dea"
       },
       {
-        "question": ["Which product category sells the most for me?"],
+        "question": [
+          "Which product category sells the most for me?"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -389,10 +459,13 @@
               "ORDER BY revenue DESC"
             ]
           }
-        ]
+        ],
+        "id": "07ed53216084a74edf994895f6fdd20a"
       },
       {
-        "question": ["Who manages territory WSSTTY3?"],
+        "question": [
+          "Who manages territory WSSTTY3?"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -409,10 +482,13 @@
               "ORDER BY ft.hierarchy_type"
             ]
           }
-        ]
+        ],
+        "id": "086e109f82f094443e9e4ee83f0003bf"
       },
       {
-        "question": ["Compare the Sales Hierarchy and the MDI Hierarchy by revenue"],
+        "question": [
+          "Compare the Sales Hierarchy and the MDI Hierarchy by revenue"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -426,10 +502,13 @@
               "ORDER BY revenue DESC"
             ]
           }
-        ]
+        ],
+        "id": "099babb45bf31b4cf6a7edfbd93380c2"
       },
       {
-        "question": ["Which cities do my dealers sell from, ranked by revenue?"],
+        "question": [
+          "Which cities do my dealers sell from, ranked by revenue?"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -443,10 +522,13 @@
               "ORDER BY revenue DESC"
             ]
           }
-        ]
+        ],
+        "id": "0a1305004aab3e495587ad21de4918df"
       },
       {
-        "question": ["How many territories do I cover and which is the largest by revenue?"],
+        "question": [
+          "How many territories do I cover and which is the largest by revenue?"
+        ],
         "answer": [
           {
             "format": "SQL",
@@ -457,7 +539,8 @@
               "ORDER BY revenue DESC"
             ]
           }
-        ]
+        ],
+        "id": "0b8909114e2dd74be180cc848a795434"
       }
     ]
   }

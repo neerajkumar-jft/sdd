@@ -221,6 +221,23 @@ What the instructions have to teach it, and why:
 - **Do not invent** — there is no target, quota, margin or stock data. Say so
   rather than substituting revenue.
 
+### Editing the space definition — three constraints the API enforces
+
+`genie/pidilite_demo.geniespace.json` is validated strictly on create, and the
+errors only appear at deploy time, so keep these in mind when editing it:
+
+1. **`data_sources.tables` must be sorted by `identifier`.**
+2. **Every list item needs an `id`**: a lowercase 32-hex string with no hyphens.
+3. **Every list must be sorted by that `id`** — `text_instructions`,
+   `example_question_sqls`, `sample_questions` and `benchmarks.questions` alike.
+
+Constraints 2 and 3 fight each other if the ids are random, because sorting by
+a random id scrambles the order things were authored in — and that order is
+visible to users in the starter questions. So the ids here encode their intended
+position in the first two hex characters, with the remainder random for
+uniqueness. Sorting by id then reproduces the authored order. Keep that scheme
+when adding an entry, or re-run the reindex rather than pasting a fresh UUID.
+
 ### Measuring it instead of trusting it
 
 The space carries 12 **benchmark** questions with their expected SQL, so
