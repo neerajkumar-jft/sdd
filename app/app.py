@@ -90,7 +90,7 @@ def is_authorized(email: str, scope_type: str, scope_id: str, hierarchy_type: st
 @st.cache_resource(ttl=1800)
 def get_pg_connection():
     cred = w.database.generate_database_credential(instance_names=[INSTANCE_NAME])
-    return psycopg2.connect(
+    conn = psycopg2.connect(
         host=os.environ["PGHOST"],
         port=os.environ.get("PGPORT", "5432"),
         dbname=os.environ["PGDATABASE"],
@@ -98,6 +98,15 @@ def get_pg_connection():
         password=cred.token,
         sslmode=os.environ.get("PGSSLMODE", "require"),
     )
+    # This connection is cached and reused across reruns for up to 30 minutes,
+    # not held open for a single multi-statement transaction. Without
+    # autocommit, one failed statement (e.g. a permission error) leaves the
+    # transaction aborted and every subsequent command on this same cached
+    # connection fails with InFailedSqlTransaction, even after the underlying
+    # issue is fixed - hit this for real. Autocommit makes each statement its
+    # own transaction, so a failure never poisons later ones.
+    conn.autocommit = True
+    return conn
 
 
 email = viewer_email()
@@ -145,7 +154,6 @@ if st.button("Add comment", type="primary"):
                 "VALUES (%s, %s, %s, %s)",
                 (scope_type, scope_id, email, comment_text),
             )
-        conn.commit()
         st.success("Comment added — it's queryable from the analytical side immediately.")
 
 st.divider()
