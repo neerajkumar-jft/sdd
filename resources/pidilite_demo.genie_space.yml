@@ -1,0 +1,24 @@
+resources:
+  genie_spaces:
+    pidilite_demo_genie:
+      title: "X Industries Sales — Ask Anything"
+      description: >-
+        Natural-language questions over the governed sales model. Every answer is
+        automatically scoped to the signed-in user's place in the sales
+        hierarchy, because the underlying gold tables carry Unity Catalog row
+        filters.
+      warehouse_id: be5dd2cb70eb66ee
+      file_path: ../genie/pidilite_demo.geniespace.json
+
+      # The four real identities mapped onto one reporting chain in
+      # data_generation/generate_dims.py. They need CAN_RUN on the space itself;
+      # what they can *see* through it is decided by the row filters, not here.
+      permissions:
+        - level: CAN_RUN
+          user_name: abhinav.sarkar@jellyfishtechnologies.com
+        - level: CAN_RUN
+          user_name: akshay.siraswar@jellyfishtechnologies.com
+        - level: CAN_RUN
+          user_name: shivam.pandey@jellyfishtechnologies.com
+        - level: CAN_RUN
+          user_name: neeraj.kumar@jellyfishtechnologies.com
