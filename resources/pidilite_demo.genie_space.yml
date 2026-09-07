@@ -10,6 +10,13 @@ resources:
       warehouse_id: be5dd2cb70eb66ee
       file_path: ../genie/pidilite_demo.geniespace.json
 
+      # A shared folder, not the bundle's default. Left to default, the space
+      # lands inside the deploying user's private .bundle/ staging directory,
+      # whose ACL is owner + admins only - so CAN_RUN on the space is not
+      # enough and every persona gets "resource was not found". parent_path is
+      # immutable, so changing it recreates the space (new id and URL).
+      parent_path: /Shared/pidilite_demo
+
       # The four real identities mapped onto one reporting chain in
       # data_generation/generate_dims.py. They need CAN_RUN on the space itself;
       # what they can *see* through it is decided by the row filters, not here.

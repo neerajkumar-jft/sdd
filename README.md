@@ -221,6 +221,25 @@ What the instructions have to teach it, and why:
 - **Do not invent** — there is no target, quota, margin or stock data. Say so
   rather than substituting revenue.
 
+### `parent_path` is not optional in practice
+
+Left unset, the space is created inside the deploying user's private
+`.bundle/.../resources` staging folder, whose ACL is owner + admins only.
+`CAN_RUN` on the space is then not enough — every other persona gets
+*"The resource was not found"*, which reads like a bad URL rather than a
+permissions problem. So it is pinned to `/Shared/pidilite_demo`.
+
+Note that `/Shared` grants `users -> CAN_MANAGE` by default, which the space
+inherits, so in practice any workspace user can edit this space regardless of
+the explicit `CAN_RUN` grants. That is fine for an internal demo workspace and
+it changes nothing about what anyone can *see* — the row filters are enforced
+on the tables against `current_user()`, not by the space's own permissions. For
+a wider audience, put it in a folder with a tighter ACL instead.
+
+`parent_path` is documented as immutable, but changing it on an existing space
+was applied in place here (`Updated`, not recreated) with the id and URL
+preserved. Do not rely on that; check the deploy plan before assuming it.
+
 ### Editing the space definition — three constraints the API enforces
 
 `genie/pidilite_demo.geniespace.json` is validated strictly on create, and the
