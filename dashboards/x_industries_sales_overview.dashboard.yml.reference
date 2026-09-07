@@ -1,0 +1,12 @@
+# Reference config, auto-generated via `databricks bundle generate dashboard`
+# from the live dashboard (id 01f1aaa04ebf15238fdeb516d2374269). NOT currently
+# bundle-managed: `bundle deploy` wants to RECREATE this dashboard (new id, new
+# URL), which would invalidate the permissions already granted to the 4 real
+# personas. Do not `bundle deploy` this without first checking whether that
+# recreate warning is still there, and if so, re-granting permissions after.
+resources:
+  dashboards:
+    x_industries_sales_overview:
+      display_name: "X Industries Sales Overview"
+      warehouse_id: be5dd2cb70eb66ee
+      file_path: ../dashboards/x_industries_sales_overview.lvdash.json
