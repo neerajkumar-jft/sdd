@@ -30,7 +30,7 @@ WINDOW_MONTHS = 18
 INJECT_DIRTY = True
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..", "sample_data")
-os.makedirs(os.path.join(BASE_DIR, "sales"), exist_ok=True)
+os.makedirs(os.path.join(BASE_DIR, "sales_transaction"), exist_ok=True)
 
 # Category mix modeled on the client's real product lines, constrained by what
 # each division sells.
@@ -204,7 +204,7 @@ for c in customers:
                 qty = max(1, int(random.gauss(24, 12) * (2.2 if c["tier"] == "A" else 1.0)))
                 price = UNIT_PRICE[category] * random.uniform(0.88, 1.12)
                 rows.append([
-                    f"T{seq:06d}",
+                    f"TXN{seq:06d}",
                     c["code"],
                     date(year, month, day).isoformat(),
                     category,
@@ -215,20 +215,20 @@ for c in customers:
 
 rows.sort(key=lambda r: r[2])
 for i, r in enumerate(rows, start=1):  # renumber so ids run in date order
-    r[0] = f"T{i:06d}"
+    r[0] = f"TXN{i:06d}"
 
 # --- deliberate dirt ---------------------------------------------------------
 
 if INJECT_DIRTY and rows:
     sample = rows[len(rows) // 2]
-    rows.append(["T900001", 99999, "2026-05-14", "Adhesives", 12, 4620.00, sample[6]])          # orphan customer_code
-    rows.append(["T900002", sample[1], "2026-13-45", "Sealants", 8, 5120.00, sample[6]])         # unparseable date
-    rows.append(["T900003", sample[1], "2026-06-02", "Sealants", -5, 3100.00, sample[6]])        # negative quantity
-    rows.append(["T900004", sample[1], "2026-06-11", "adhesives", 15, "", sample[6]])            # null revenue + casing drift
+    rows.append(["TXN900001", 99999, "2026-05-14", "Adhesives", 12, 4620.00, sample[6]])          # orphan customer_code
+    rows.append(["TXN900002", sample[1], "2026-13-45", "Sealants", 8, 5120.00, sample[6]])         # unparseable date
+    rows.append(["TXN900003", sample[1], "2026-06-02", "Sealants", -5, 3100.00, sample[6]])        # negative quantity
+    rows.append(["TXN900004", sample[1], "2026-06-11", "adhesives", 15, "", sample[6]])            # null revenue + casing drift
 
 # --- write -------------------------------------------------------------------
 
-with open(os.path.join(BASE_DIR, "sales", "sales.csv"), "w", newline="") as f:
+with open(os.path.join(BASE_DIR, "sales_transaction", "sales_transaction.csv"), "w", newline="") as f:
     w = csv.writer(f)
     w.writerow([
         "transaction_id", "customer_code", "transaction_date",
@@ -238,7 +238,7 @@ with open(os.path.join(BASE_DIR, "sales", "sales.csv"), "w", newline="") as f:
 
 # --- summary (sanity-check the shape, not just the count) --------------------
 
-clean = [r for r in rows if not str(r[0]).startswith("T9000")]
+clean = [r for r in rows if not str(r[0]).startswith("TXN9000")]
 by_customer = {}
 for r in clean:
     by_customer[r[1]] = by_customer.get(r[1], 0.0) + float(r[5])
