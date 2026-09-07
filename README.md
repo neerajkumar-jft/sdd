@@ -276,6 +276,42 @@ What the instructions have to teach it, and why:
 - **Do not invent** — there is no target, quota, margin or stock data. Say so
   rather than substituting revenue.
 
+### `parent_path` is not optional in practice
+
+Left unset, the space is created inside the deploying user's private
+`.bundle/.../resources` staging folder, whose ACL is owner + admins only.
+`CAN_RUN` on the space is then not enough — every other persona gets
+*"The resource was not found"*, which reads like a bad URL rather than a
+permissions problem. So it is pinned to `/Shared/pidilite_demo`.
+
+Note that `/Shared` grants `users -> CAN_MANAGE` by default, which the space
+inherits, so in practice any workspace user can edit this space regardless of
+the explicit `CAN_RUN` grants. That is fine for an internal demo workspace and
+it changes nothing about what anyone can *see* — the row filters are enforced
+on the tables against `current_user()`, not by the space's own permissions. For
+a wider audience, put it in a folder with a tighter ACL instead.
+
+`parent_path` is documented as immutable, but changing it on an existing space
+was applied in place here (`Updated`, not recreated) with the id and URL
+preserved. Do not rely on that; check the deploy plan before assuming it.
+
+### Editing the space definition — three constraints the API enforces
+
+`genie/pidilite_demo.geniespace.json` is validated strictly on create, and the
+errors only appear at deploy time, so keep these in mind when editing it:
+
+1. **`data_sources.tables` must be sorted by `identifier`.**
+2. **Every list item needs an `id`**: a lowercase 32-hex string with no hyphens.
+3. **Every list must be sorted by that `id`** — `text_instructions`,
+   `example_question_sqls`, `sample_questions` and `benchmarks.questions` alike.
+
+Constraints 2 and 3 fight each other if the ids are random, because sorting by
+a random id scrambles the order things were authored in — and that order is
+visible to users in the starter questions. So the ids here encode their intended
+position in the first two hex characters, with the remainder random for
+uniqueness. Sorting by id then reproduces the authored order. Keep that scheme
+when adding an entry, or re-run the reindex rather than pasting a fresh UUID.
+
 ### Measuring it instead of trusting it
 
 The space carries 12 **benchmark** questions with their expected SQL, so
