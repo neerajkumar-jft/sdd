@@ -132,7 +132,7 @@
                   "disaggregated": false,
                   "fields": [
                     {
-                      "expression": "SUM(CASE WHEN NOT `is_dormant` THEN 1 ELSE 0 END)",
+                      "expression": "COUNT_IF(NOT `is_dormant`)",
                       "name": "active_dealers"
                     }
                   ]
@@ -173,7 +173,7 @@
                   "disaggregated": false,
                   "fields": [
                     {
-                      "expression": "SUM(CASE WHEN `is_dormant` THEN 1 ELSE 0 END)",
+                      "expression": "COUNT_IF(`is_dormant`)",
                       "name": "dormant_dealers"
                     }
                   ]
