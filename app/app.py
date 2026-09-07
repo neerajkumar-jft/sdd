@@ -12,6 +12,11 @@ comment, this checks pidilite_demo.gold.access_map_customer /
 access_map_field_team for the *commenting* user, using the app's own service
 principal (granted narrow SELECT on just those two tables - not exposed to
 end users, this is a server-side check only).
+
+Reached two ways:
+  - via a row link from the dashboard (?scope_type=...&scope_id=...&...) -
+    the record is pre-filled, no id to remember or type
+  - opened directly, with no query params - falls back to a manual form
 """
 import os
 
@@ -101,13 +106,29 @@ if not email:
 
 st.write(f"Commenting as **{email}**")
 
-scope_type = st.selectbox("What are you commenting on?", ["customer", "field_team"])
-hierarchy_type = None
-if scope_type == "customer":
-    scope_id = st.text_input("Customer code")
+# Arriving from a dashboard row-link pre-fills everything below via URL params
+# (?scope_type=customer&scope_id=94&customer_name=...), so nobody has to
+# remember or type a customer code / field team code by hand. Opening the app
+# directly (no params) falls back to the manual form.
+params = st.query_params
+linked = "scope_type" in params and "scope_id" in params
+
+if linked:
+    scope_type = params["scope_type"]
+    scope_id = params["scope_id"]
+    hierarchy_type = params.get("hierarchy_type")
+    label = params.get("customer_name") or (
+        f"{scope_id} ({hierarchy_type})" if scope_type == "field_team" else scope_id
+    )
+    st.info(f"Commenting on **{scope_type.replace('_', ' ')}**: {label}")
 else:
-    scope_id = st.text_input("Field team code (e.g. WSSTTY1)")
-    hierarchy_type = st.selectbox("Hierarchy", ["Sales Hierarchy", "MDI Hierarchy"])
+    scope_type = st.selectbox("What are you commenting on?", ["customer", "field_team"])
+    hierarchy_type = None
+    if scope_type == "customer":
+        scope_id = st.text_input("Customer code")
+    else:
+        scope_id = st.text_input("Field team code (e.g. WSSTTY1)")
+        hierarchy_type = st.selectbox("Hierarchy", ["Sales Hierarchy", "MDI Hierarchy"])
 
 comment_text = st.text_area("Comment")
 

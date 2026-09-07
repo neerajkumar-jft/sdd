@@ -34,6 +34,13 @@
       "queryLines": [
         "SELECT scope_type, scope_id, user_email, comment_text, created_at FROM pidilite_comments.public.comments ORDER BY created_at DESC"
       ]
+    },
+    {
+      "displayName": "territories",
+      "name": "7cb19d41",
+      "queryLines": [
+        "SELECT DISTINCT field_team_code, hierarchy_type, division_id FROM pidilite_demo.gold.dim_field_team ORDER BY field_team_code"
+      ]
     }
   ],
   "pages": [
@@ -509,6 +516,10 @@
                   "disaggregated": true,
                   "fields": [
                     {
+                      "expression": "`customer_code`",
+                      "name": "customer_code"
+                    },
+                    {
                       "expression": "`customer_name`",
                       "name": "customer_name"
                     },
@@ -550,6 +561,14 @@
               "encodings": {
                 "columns": [
                   {
+                    "displayAs": "number",
+                    "displayName": "Code",
+                    "fieldName": "customer_code",
+                    "title": "Code",
+                    "type": "integer",
+                    "visible": true
+                  },
+                  {
                     "alignContent": "left",
                     "allowHTML": false,
                     "allowSearch": false,
@@ -560,6 +579,9 @@
                     "displayAs": "string",
                     "displayName": "Dealer",
                     "fieldName": "customer_name",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{@}}",
+                    "linkUrlTemplate": "https://pidilite-comments-app-7474658069346952.aws.databricksapps.com/?scope_type=customer&scope_id={{customer_code}}&customer_name={{customer_name}}",
                     "title": "Dealer",
                     "type": "string",
                     "visible": true
@@ -678,7 +700,9 @@
                 "showTitle": true,
                 "title": "Dealer Scorecard"
               },
-              "invisibleColumns": [],
+              "invisibleColumns": [
+                "customer_code"
+              ],
               "itemsPerPage": 25,
               "paginationSize": "default",
               "version": 1,
@@ -692,7 +716,7 @@
             "height": 2,
             "width": 6,
             "x": 0,
-            "y": 29
+            "y": 37
           },
           "widget": {
             "multilineTextboxSpec": {
@@ -709,7 +733,7 @@
             "height": 8,
             "width": 6,
             "x": 0,
-            "y": 31
+            "y": 39
           },
           "widget": {
             "name": "280230bd",
@@ -830,6 +854,86 @@
                 "showDescription": false,
                 "showTitle": true,
                 "title": "Recent Comments"
+              },
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "version": 1,
+              "widgetType": "table",
+              "withRowNumber": false
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 8,
+            "width": 6,
+            "x": 0,
+            "y": 29
+          },
+          "widget": {
+            "name": "788c3660",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7cb19d41",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`field_team_code`",
+                      "name": "field_team_code"
+                    },
+                    {
+                      "expression": "`hierarchy_type`",
+                      "name": "hierarchy_type"
+                    },
+                    {
+                      "expression": "`division_id`",
+                      "name": "division_id"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "allowHTMLByDefault": false,
+              "condensed": false,
+              "encodings": {
+                "columns": [
+                  {
+                    "displayAs": "string",
+                    "displayName": "Territory",
+                    "fieldName": "field_team_code",
+                    "linkOpenInNewTab": true,
+                    "linkTextTemplate": "{{@}}",
+                    "linkUrlTemplate": "https://pidilite-comments-app-7474658069346952.aws.databricksapps.com/?scope_type=field_team&scope_id={{field_team_code}}&hierarchy_type={{hierarchy_type}}",
+                    "title": "Territory",
+                    "type": "string",
+                    "visible": true
+                  },
+                  {
+                    "displayAs": "string",
+                    "displayName": "Hierarchy",
+                    "fieldName": "hierarchy_type",
+                    "title": "Hierarchy",
+                    "type": "string",
+                    "visible": true
+                  },
+                  {
+                    "displayAs": "number",
+                    "displayName": "Division",
+                    "fieldName": "division_id",
+                    "title": "Division",
+                    "type": "integer",
+                    "visible": true
+                  }
+                ]
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Territories — click to comment"
               },
               "invisibleColumns": [],
               "itemsPerPage": 25,
