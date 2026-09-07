@@ -88,25 +88,31 @@ RETURN EXISTS (
 -- reads them downstream (gold.py reads silver, never gold). That is what stops
 -- the pipeline's own service identity - which is not in the access map - from
 -- being filtered to zero rows and silently publishing an empty table.
+--
+-- ALTER MATERIALIZED VIEW, not ALTER TABLE: gold.py's tables read via
+-- dlt.read() (a batch, non-streaming source), which Lakeflow materializes as
+-- MATERIALIZED_VIEW, not a plain managed table. Unity Catalog rejects
+-- `ALTER TABLE ... SET ROW FILTER` on one with EXPECT_TABLE_NOT_VIEW - verified
+-- against this workspace, not assumed.
 -- -----------------------------------------------------------------------------
 
-ALTER TABLE pidilite_demo.gold.fact_sales_transaction
+ALTER MATERIALIZED VIEW pidilite_demo.gold.fact_sales_transaction
   SET ROW FILTER pidilite_demo.gold.can_see_customer ON (customer_code);
 
-ALTER TABLE pidilite_demo.gold.dim_customer
+ALTER MATERIALIZED VIEW pidilite_demo.gold.dim_customer
   SET ROW FILTER pidilite_demo.gold.can_see_customer ON (customer_code);
 
-ALTER TABLE pidilite_demo.gold.dim_field_team
+ALTER MATERIALIZED VIEW pidilite_demo.gold.dim_field_team
   SET ROW FILTER pidilite_demo.gold.can_see_field_team ON (field_team_code, hierarchy_type);
 
 -- The serving aggregates need filtering too, and for the same reason the detail
 -- tables do: each row belongs to exactly one territory or one dealer, so
 -- filtering rows is the whole job - no figure on these tables is summed across
 -- anyone else's scope, so nothing leaks through the aggregate itself.
-ALTER TABLE pidilite_demo.gold.agg_sales_by_territory_month
+ALTER MATERIALIZED VIEW pidilite_demo.gold.agg_sales_by_territory_month
   SET ROW FILTER pidilite_demo.gold.can_see_field_team ON (field_team_code, hierarchy_type);
 
-ALTER TABLE pidilite_demo.gold.agg_dealer_scorecard
+ALTER MATERIALIZED VIEW pidilite_demo.gold.agg_dealer_scorecard
   SET ROW FILTER pidilite_demo.gold.can_see_customer ON (customer_code);
 
 -- Deliberately NOT filtered, and worth saying out loud rather than leaving
@@ -122,11 +128,11 @@ ALTER TABLE pidilite_demo.gold.agg_dealer_scorecard
 --                         granted (section 3) instead.
 
 -- Rollback, if a check fails and you need the tables back unfiltered:
---   ALTER TABLE pidilite_demo.gold.fact_sales_transaction DROP ROW FILTER;
---   ALTER TABLE pidilite_demo.gold.dim_customer          DROP ROW FILTER;
---   ALTER TABLE pidilite_demo.gold.dim_field_team        DROP ROW FILTER;
---   ALTER TABLE pidilite_demo.gold.agg_sales_by_territory_month DROP ROW FILTER;
---   ALTER TABLE pidilite_demo.gold.agg_dealer_scorecard         DROP ROW FILTER;
+--   ALTER MATERIALIZED VIEW pidilite_demo.gold.fact_sales_transaction       DROP ROW FILTER;
+--   ALTER MATERIALIZED VIEW pidilite_demo.gold.dim_customer                 DROP ROW FILTER;
+--   ALTER MATERIALIZED VIEW pidilite_demo.gold.dim_field_team               DROP ROW FILTER;
+--   ALTER MATERIALIZED VIEW pidilite_demo.gold.agg_sales_by_territory_month DROP ROW FILTER;
+--   ALTER MATERIALIZED VIEW pidilite_demo.gold.agg_dealer_scorecard         DROP ROW FILTER;
 
 
 -- -----------------------------------------------------------------------------
