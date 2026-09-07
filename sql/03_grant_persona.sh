@@ -27,6 +27,7 @@ SCHEMA="pidilite_demo.gold"
 WAREHOUSE_ID="be5dd2cb70eb66ee"
 GENIE_SPACE_ID="01f1aaa58a6c1e639422daac2f1a1dd9"
 DASHBOARD_ID="01f1aaa04ebf15238fdeb516d2374269"
+COMMENTS_TABLE="pidilite_comments.public.comments"
 
 # Consumption tables only - the access maps are absent on purpose.
 TABLES=(
@@ -49,6 +50,14 @@ step() {  # step <label> <command...>
     printf '  FAIL  %s\n        %s\n' "$label" "$(printf '%s' "$out" | head -2 | tr '\n' ' ')"
     fail=1
   fi
+}
+
+uc_revoke() {  # uc_revoke <securable_type> <full_name> <privilege...>
+  local kind="$1" name="$2"; shift 2
+  local privs
+  privs=$(printf '"%s",' "$@"); privs="[${privs%,}]"
+  databricks grants update "$kind" "$name" --profile "$PROFILE" \
+    --json "{\"changes\":[{\"principal\":\"$EMAIL\",\"remove\":$privs}]}" >/dev/null
 }
 
 uc_grant() {  # uc_grant <securable_type> <full_name> <privilege...>
@@ -86,7 +95,20 @@ for f in "${FUNCTIONS[@]}"; do
   step "function EXECUTE $f" uc_grant FUNCTION "$SCHEMA.$f" EXECUTE
 done
 
-# 5. The two front doors.
+# 5. Comments, through the scoped view ONLY.
+#    pidilite_comments.public.comments is a federated table over Lakebase
+#    Postgres and carries no row filter, so a direct grant on it lets a persona
+#    read every comment - including notes about dealers outside their scope,
+#    which discloses that those dealers exist and what is happening with them.
+#    v_comments_scoped resolves current_user() against the access maps instead.
+#    The revoke is what makes the view the only route; granting both would
+#    defeat it. Kept idempotent: revoking a privilege nobody holds is a no-op.
+step "view SELECT v_comments_scoped" \
+  uc_grant TABLE "$SCHEMA.v_comments_scoped" SELECT
+step "revoke direct comments SELECT" \
+  uc_revoke TABLE "$COMMENTS_TABLE" SELECT
+
+# 6. The two front doors.
 step "genie space CAN_RUN" acl_grant "genie/$GENIE_SPACE_ID" CAN_RUN
 step "dashboard CAN_RUN"   acl_grant "dashboards/$DASHBOARD_ID" CAN_RUN
 

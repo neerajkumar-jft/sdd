@@ -36,7 +36,7 @@ Gold:   pidilite_demo.gold.dim_*/fact_sales_transaction
         pidilite_demo.gold.access_map_field_team   (entitlements, user_email → field_team_code)
         │  row filters keyed on current_user()
         ▼
-        Genie space (natural language)  ·  AI/BI Dashboard
+        Genie space (8 tables, natural language)  ·  AI/BI Dashboard
 
 Lakebase (OLTP Postgres, separate from the pipeline above)
         pidilite-comments instance → public.comments table
@@ -107,6 +107,29 @@ and no new mailbox is needed. Only their email is overridden; the generated
 names stay, so the roster reads like a sales organization rather than the same
 few colleagues wearing every hat.
 
+#### Comments are read through a scoped view, not the table
+
+`pidilite_comments.public.comments` is a **federated** table over Lakebase
+Postgres, so it carries no Unity Catalog row filter — and the personas had been
+granted `SELECT` on it directly. That left the comment *write* path governed
+(the comment app checks the access maps server-side before allowing a comment)
+while the *read* path was wide open: any persona could read every comment,
+including notes about dealers outside their own scope. Someone else's note on a
+dealer you cannot see is itself a disclosure — it tells you the dealer exists
+and what is happening with it.
+
+`sql/04_comments_scoped_view.sql` creates `gold.v_comments_scoped`, which
+resolves `current_user()` against the access maps, and the grant script now
+grants that view and **revokes** the base table. The grant on the base table
+was vestigial in any case: it existed for a "Recent Comments" widget that has
+since moved into its own app, which reads Postgres directly and never needed it.
+
+One known imprecision is recorded inline: the comments table stores `scope_id`
+with no `hierarchy_type`, so a territory-scoped comment can only be matched on
+the code — the same code-alone ambiguity the dimensional model was fixed for.
+The proper fix is a `hierarchy_type` column on the comments table; the comment
+app already receives it in the URL, it just is not stored.
+
 A persona needs privileges on **five separate surfaces** — SQL warehouse,
 catalog and schema, the gold tables, the filter functions, and the Genie space
 and dashboard — and missing any one fails in a way that does not point at the
@@ -117,6 +140,10 @@ Genie fault. So it is one idempotent command:
 ```bash
 ./sql/03_grant_persona.sh <email> [profile]
 ```
+
+Sixteen grants, idempotent, and it includes the comments view plus the revoke
+on the base table — so the read path stays closed for every persona added
+later, not only the ones that existed when the gap was found.
 
 `gold.access_map_*` is deliberately absent from what it grants: a user needs
 `EXECUTE` on the row-filter function, never read access to the entitlement
@@ -203,7 +230,8 @@ src/pidilite_demo/
 sql/
 ├── 01_row_filters.sql                  # filter functions, ALTER ... SET ROW FILTER, grants
 ├── 02_verify_rls.sql                   # RLS verification checklist
-└── 03_grant_persona.sh                 # all 14 grants for one persona, idempotent
+├── 03_grant_persona.sh                 # all 16 grants for one persona, idempotent
+└── 04_comments_scoped_view.sql         # scope-filtered view over the federated comments table
 dashboards/
 ├── x_industries_sales_overview.lvdash.json          # AI/BI dashboard definition
 └── x_industries_sales_overview.dashboard.yml.reference  # bundle config, deliberately NOT wired in
