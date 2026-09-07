@@ -1,0 +1,622 @@
+{
+  "datasets": [
+    {
+      "displayName": "dealer_scorecard",
+      "name": "67e981a1",
+      "queryLines": [
+        "SELECT * FROM pidilite_demo.gold.agg_dealer_scorecard ORDER BY revenue_total DESC"
+      ]
+    },
+    {
+      "displayName": "sales_by_territory_month",
+      "name": "1f575e90",
+      "queryLines": [
+        "SELECT * FROM pidilite_demo.gold.agg_sales_by_territory_month"
+      ]
+    },
+    {
+      "displayName": "sales_transactions",
+      "name": "31bf5c26",
+      "queryLines": [
+        "SELECT * FROM pidilite_demo.gold.fact_sales_transaction"
+      ]
+    },
+    {
+      "displayName": "top_customers",
+      "name": "2b6893d6",
+      "queryLines": [
+        "SELECT customer_name, revenue_total FROM pidilite_demo.gold.agg_dealer_scorecard ORDER BY revenue_total DESC LIMIT 10"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "displayName": "Overview",
+      "layout": [
+        {
+          "position": {
+            "height": 3,
+            "width": 1,
+            "x": 0,
+            "y": 0
+          },
+          "widget": {
+            "name": "072f1550",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "67e981a1",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "SUM(`revenue_total`)",
+                      "name": "sum(revenue_total)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "value": {
+                  "displayName": "Total Revenue (Rs)",
+                  "fieldName": "sum(revenue_total)"
+                }
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Total Revenue (Rs)"
+              },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 3,
+            "width": 1,
+            "x": 1,
+            "y": 0
+          },
+          "widget": {
+            "name": "1d9bbb54",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "67e981a1",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "SUM(`transactions`)",
+                      "name": "sum(transactions)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "value": {
+                  "displayName": "Total Transactions",
+                  "fieldName": "sum(transactions)"
+                }
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Total Transactions"
+              },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 3,
+            "width": 1,
+            "x": 2,
+            "y": 0
+          },
+          "widget": {
+            "name": "3a38c8ad",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "67e981a1",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "COUNT_IF(NOT `is_dormant`)",
+                      "name": "active_dealers"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "value": {
+                  "displayName": "Active Dealers",
+                  "fieldName": "active_dealers"
+                }
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Active Dealers"
+              },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 3,
+            "width": 1,
+            "x": 3,
+            "y": 0
+          },
+          "widget": {
+            "name": "489463f9",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "67e981a1",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "COUNT_IF(`is_dormant`)",
+                      "name": "dormant_dealers"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "value": {
+                  "displayName": "Dormant Dealers",
+                  "fieldName": "dormant_dealers"
+                }
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Dormant Dealers"
+              },
+              "version": 2,
+              "widgetType": "counter"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 6,
+            "width": 6,
+            "x": 0,
+            "y": 3
+          },
+          "widget": {
+            "name": "8ab98677",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "1f575e90",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`month`",
+                      "name": "month"
+                    },
+                    {
+                      "expression": "SUM(`revenue`)",
+                      "name": "sum(revenue)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": {
+                  "displayName": "month",
+                  "fieldName": "month",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fields": [
+                    {
+                      "displayName": "Revenue Trend by Month",
+                      "fieldName": "sum(revenue)"
+                    }
+                  ],
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Revenue Trend by Month"
+              },
+              "version": 3,
+              "widgetType": "line"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 6,
+            "width": 3,
+            "x": 0,
+            "y": 9
+          },
+          "widget": {
+            "name": "7573abc9",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "1f575e90",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`field_team_code`",
+                      "name": "field_team_code"
+                    },
+                    {
+                      "expression": "SUM(`revenue`)",
+                      "name": "sum(revenue)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": {
+                  "displayName": "field_team_code",
+                  "fieldName": "field_team_code",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "displayName": "sum(revenue)",
+                  "fieldName": "sum(revenue)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Revenue by Territory"
+              },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 6,
+            "width": 3,
+            "x": 3,
+            "y": 9
+          },
+          "widget": {
+            "name": "2bdfc5e9",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "31bf5c26",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`product_category`",
+                      "name": "product_category"
+                    },
+                    {
+                      "expression": "SUM(`revenue`)",
+                      "name": "sum(revenue)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": {
+                  "displayName": "product_category",
+                  "fieldName": "product_category",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "displayName": "sum(revenue)",
+                  "fieldName": "sum(revenue)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Revenue by Product Category"
+              },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 6,
+            "width": 6,
+            "x": 0,
+            "y": 15
+          },
+          "widget": {
+            "name": "fcd16045",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "2b6893d6",
+                  "disaggregated": false,
+                  "fields": [
+                    {
+                      "expression": "`customer_name`",
+                      "name": "customer_name"
+                    },
+                    {
+                      "expression": "`revenue_total`",
+                      "name": "revenue_total"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "encodings": {
+                "x": {
+                  "displayName": "customer_name",
+                  "fieldName": "customer_name",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "displayName": "revenue_total",
+                  "fieldName": "revenue_total",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Top 10 Customers by Revenue"
+              },
+              "version": 3,
+              "widgetType": "bar"
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 8,
+            "width": 6,
+            "x": 0,
+            "y": 21
+          },
+          "widget": {
+            "name": "b009578e",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "67e981a1",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`customer_name`",
+                      "name": "customer_name"
+                    },
+                    {
+                      "expression": "`city`",
+                      "name": "city"
+                    },
+                    {
+                      "expression": "`state`",
+                      "name": "state"
+                    },
+                    {
+                      "expression": "`revenue_total`",
+                      "name": "revenue_total"
+                    },
+                    {
+                      "expression": "`revenue_recent`",
+                      "name": "revenue_recent"
+                    },
+                    {
+                      "expression": "`days_since_last_sale`",
+                      "name": "days_since_last_sale"
+                    },
+                    {
+                      "expression": "`is_dormant`",
+                      "name": "is_dormant"
+                    },
+                    {
+                      "expression": "`top_category`",
+                      "name": "top_category"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "allowHTMLByDefault": false,
+              "condensed": false,
+              "encodings": {
+                "columns": [
+                  {
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "string",
+                    "displayName": "Dealer",
+                    "fieldName": "customer_name",
+                    "title": "Dealer",
+                    "type": "string",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "string",
+                    "displayName": "City",
+                    "fieldName": "city",
+                    "title": "City",
+                    "type": "string",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "string",
+                    "displayName": "State",
+                    "fieldName": "state",
+                    "title": "State",
+                    "type": "string",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "number",
+                    "displayName": "Lifetime Revenue",
+                    "fieldName": "revenue_total",
+                    "title": "Lifetime Revenue",
+                    "type": "decimal",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "number",
+                    "displayName": "Recent Revenue (90d)",
+                    "fieldName": "revenue_recent",
+                    "title": "Recent Revenue (90d)",
+                    "type": "decimal",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "number",
+                    "displayName": "Days Since Last Sale",
+                    "fieldName": "days_since_last_sale",
+                    "title": "Days Since Last Sale",
+                    "type": "integer",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "boolean",
+                    "displayName": "Dormant?",
+                    "fieldName": "is_dormant",
+                    "title": "Dormant?",
+                    "type": "boolean",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "string",
+                    "displayName": "Top Category",
+                    "fieldName": "top_category",
+                    "title": "Top Category",
+                    "type": "string",
+                    "visible": true
+                  }
+                ]
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Dealer Scorecard"
+              },
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "version": 1,
+              "widgetType": "table",
+              "withRowNumber": false
+            }
+          }
+        }
+      ],
+      "name": "6e8fc1a3",
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ]
+}
