@@ -14,7 +14,7 @@ to. Built on synthetic data modelled after the client's real sample.
 | Data generation (dims + sales fact) | ✅ | — |
 | Bronze — Auto Loader ingestion | ✅ | ✅ |
 | Silver — cleansing, validation, quarantine | ✅ | ✅ |
-| Gold — conformed model + derived access maps | ✅ | ❌ |
+| Gold — conformed model, serving aggregates, access maps | ✅ | ❌ |
 | Row-level security — filter functions, grants | ✅ | ❌ |
 | Lakebase OLTP comments | ❌ | ❌ |
 | Salesforce sync job | ❌ | ❌ |
@@ -49,9 +49,11 @@ Silver: pidilite_demo.silver.dim_*/fact_*             (cleansed, validated)
         │  explicit projections, plus the entitlement maps derived from the
         │  management chain already present on dim_field_team
         ▼
-Gold:   pidilite_demo.gold.dim_*/fact_sales_transaction
-        pidilite_demo.gold.access_map_customer     (847 rows)
-        pidilite_demo.gold.access_map_field_team   (119 rows)
+Gold:   pidilite_demo.gold.dim_*/fact_sales_transaction   (conformed model)
+        pidilite_demo.gold.agg_sales_by_territory_month  (287 rows, serving)
+        pidilite_demo.gold.agg_dealer_scorecard          (121 rows, serving)
+        pidilite_demo.gold.access_map_customer           (847 rows, entitlement)
+        pidilite_demo.gold.access_map_field_team         (119 rows, entitlement)
         │  row filters keyed on current_user()
         ▼
         AI/BI Dashboard + Genie space (not yet built)
@@ -100,6 +102,55 @@ code alone matches it against *both* chains, so one dealer resolves to two
 different Territory Managers and row-level security hands it to both — with no
 error raised. Every entitlement therefore carries `hierarchy_type`, and
 `mark_fk_valid` in `silver.py` takes composite keys for exactly this reason.
+
+## What gold carries
+
+Nine tables, in three groups:
+
+- **Conformed model** — `dim_division`, `dim_person`, `dim_field_team`,
+  `dim_customer`, `fact_sales_transaction`. Explicit projections, so silver's
+  lineage columns (`_ingested_at`, `_source_file`) and FK helper flags never
+  reach the model a dashboard sees.
+- **Serving aggregates** — `agg_sales_by_territory_month` (revenue, volume and
+  active dealer count per territory per month) and `agg_dealer_scorecard` (one
+  row per dealer with lifetime and recent value, recency, a dormancy flag and
+  top category). Gold is a consumption layer, not a second copy of silver: a
+  dashboard tile should answer from a few hundred pre-computed rows rather than
+  scanning the fact on every render, and Genie answers far more reliably from a
+  table whose grain already matches the question ("how is each territory
+  trending", "which dealers have gone quiet") than from one it has to derive
+  that grain out of on every attempt.
+- **Entitlement** — `access_map_customer`, `access_map_field_team`. See below.
+
+Every gold column carries a **comment**, declared in the pipeline via column
+metadata rather than applied by an `ALTER` afterwards, so a full refresh
+republishes them instead of wiping them. These are not decoration: Genie reads
+column comments to choose which column answers a question, so a documented
+`revenue` and an undocumented one produce measurably different answers.
+
+Recency on the aggregates is anchored to `as_of_date` — the latest transaction
+in the data — not to `current_date`. The seed data is fixed, so anchoring on the
+clock would make the dormancy figures drift every day the demo is shown.
+
+### Known gaps against a production gold layer
+
+Stated rather than hidden, because the client's reporting team will find them:
+
+- **No effective dating.** The access maps describe who can see what *now*, so a
+  reorg rescopes history as well as the present — somebody's Q1 figure can
+  change because a territory moved in Q3. Production needs
+  `valid_from`/`valid_to` on the management chain and as-of entitlement, and the
+  rule behind it ("after a reassignment, whose history is it?") is the client's
+  business decision, not ours to invent. This is the flip side of the
+  self-healing behaviour below, and worth raising with them directly.
+- **No surrogate keys or SCD Type 2** on the dimensions. Natural keys only.
+- **`access_map_customer` does not scale as-is.** Flattening to
+  (user × dealer) is fine at 847 rows and would not be at the real
+  organization's size. The territory-grain map is the one that scales; at
+  production volume the customer grain becomes a query-time join, a group
+  membership check, or a tag-based ABAC policy.
+- **No PII classification or column masking**, no partitioning/clustering
+  strategy, and no gold-level reconciliation assertions.
 
 ## Row-level security
 

@@ -1,6 +1,6 @@
 """
-Gold layer: the conformed dimensional model, plus the pre-computed access maps
-that row-level security keys off.
+Gold layer: the conformed dimensional model, the serving aggregates, and the
+pre-computed access maps that row-level security keys off.
 
 Two rules this file follows deliberately.
 
@@ -17,9 +17,17 @@ Two rules this file follows deliberately.
    A hand-kept mapping table drifts from the org chart, and drift in an access
    map is a silent security bug: the wrong person keeps seeing the wrong data
    and nothing errors.
+
+Known gap against a production gold layer, worth stating rather than hiding:
+there is no effective dating here. The access maps describe who can see what
+*now*, so a reorg rescopes history as well as the present - somebody's Q1
+number can change because a territory moved in Q3. Production needs
+`valid_from`/`valid_to` on the management chain and as-of entitlement, and the
+policy behind it ("after a reassignment, whose history is it?") is the client's
+business rule, not ours to invent.
 """
 import dlt
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
 
 CATALOG = "pidilite_demo"
@@ -28,29 +36,100 @@ GOLD = f"{CATALOG}.gold"
 
 HEAD_OFFICE_ROLE = "Head Office"
 
-# Explicit projections: silver carries lineage columns (_ingested_at,
-# _source_file) and FK helper flags (_*_fk_valid), and none of that should reach
-# the model the dashboard and Genie see.
+# Dormancy threshold, in days without a transaction.
+DORMANT_AFTER_DAYS = 180
+
+# Window for the recency measure on the dealer scorecard, in days.
+RECENT_WINDOW_DAYS = 90
+
+# Explicit projections, column -> comment.
+#
+# Two jobs at once. The projection keeps silver's lineage columns
+# (_ingested_at, _source_file) and FK helper flags out of the model the
+# dashboard sees. The comments are not decoration: Genie reads column comments
+# to decide which column answers a question, so a documented `revenue` and an
+# undocumented one produce measurably different natural-language answers.
 DIM_COLUMNS = {
-    "division": ["division_id", "division_name"],
-    "person": [
-        "person_id", "person_name", "role",
-        "division_id", "hierarchy_type", "user_email",
-    ],
-    "field_team": [
-        "field_team_code", "division_id", "hierarchy_type",
-        "master_person_id", "ra1_person_id", "ra2_person_id",
-    ],
-    "customer": [
-        "customer_code", "customer_name", "division_id",
-        "field_team_code", "hierarchy_type", "city", "state",
-    ],
+    "division": {
+        "division_id": "Business line identifier.",
+        "division_name": "Business line name, e.g. Consumer & Bazaar.",
+    },
+    "person": {
+        "person_id": "Internal identifier for a member of the sales organization.",
+        "person_name": "Full name of the salesperson or Head Office user.",
+        "role": (
+            "Position in the sales organization: Territory/Area Sales Manager, "
+            "Regional/Zonal Sales Manager, National Sales Manager, or Head Office."
+        ),
+        "division_id": "Business line this person belongs to. Null for National Sales Managers and Head Office, who span divisions.",
+        "hierarchy_type": "Which management chain this person sits in: 'Sales Hierarchy', 'MDI Hierarchy', or 'All' for Head Office.",
+        "user_email": "Login identity. Row-level security matches current_user() against this column.",
+    },
+    "field_team": {
+        "field_team_code": (
+            "Sales territory code. NOT unique on its own - the same code can appear "
+            "under both management chains, so the real key is "
+            "(field_team_code, hierarchy_type)."
+        ),
+        "division_id": "Business line this territory sells for.",
+        "hierarchy_type": "Which management chain this territory reports through: 'Sales Hierarchy' or 'MDI Hierarchy'.",
+        "master_person_id": "Territory/Area Sales Manager who owns this territory.",
+        "ra1_person_id": "Regional/Zonal Sales Manager the territory manager reports to.",
+        "ra2_person_id": "National Sales Manager the regional manager reports to.",
+    },
+    "customer": {
+        "customer_code": "Dealer/retailer identifier.",
+        "customer_name": "Dealer or retailer business name.",
+        "division_id": "Business line this dealer buys from.",
+        "field_team_code": "Sales territory serving this dealer.",
+        "hierarchy_type": (
+            "Management chain this dealer belongs to. Required alongside "
+            "field_team_code, because the code alone matches both chains."
+        ),
+        "city": "Dealer city.",
+        "state": "Indian state the dealer trades in.",
+    },
 }
 
-FACT_COLUMNS = [
-    "transaction_id", "customer_code", "transaction_date",
-    "product_category", "quantity", "revenue", "salesperson_id",
-]
+FACT_COLUMNS = {
+    "transaction_id": "Unique identifier for a single sale.",
+    "customer_code": "Dealer the sale was made to.",
+    "transaction_date": "Date the sale was booked.",
+    "product_category": "Product line sold: Adhesives, Sealants, Construction Chemicals, Art & Craft, or Industrial Resins.",
+    "quantity": "Units sold.",
+    "revenue": "Sale value in Indian rupees.",
+    "salesperson_id": "Territory/Area Sales Manager credited with the sale.",
+}
+
+AGG_TERRITORY_MONTH_COLUMNS = {
+    "field_team_code": "Sales territory code.",
+    "hierarchy_type": "Management chain the territory reports through.",
+    "division_id": "Business line.",
+    "month": "First day of the calendar month the figures cover.",
+    "revenue": "Total sale value in Indian rupees for the territory in that month.",
+    "quantity": "Total units sold.",
+    "transactions": "Number of sales booked.",
+    "active_dealers": "Distinct dealers that bought at least once in the month.",
+}
+
+AGG_DEALER_SCORECARD_COLUMNS = {
+    "customer_code": "Dealer identifier.",
+    "customer_name": "Dealer business name.",
+    "field_team_code": "Sales territory serving this dealer.",
+    "hierarchy_type": "Management chain this dealer belongs to.",
+    "division_id": "Business line the dealer buys from.",
+    "city": "Dealer city.",
+    "state": "Indian state the dealer trades in.",
+    "revenue_total": "Lifetime sale value to this dealer, in Indian rupees.",
+    "revenue_recent": f"Sale value in the last {RECENT_WINDOW_DAYS} days of available data.",
+    "transactions": "Lifetime number of sales to this dealer.",
+    "first_sale": "Date of the dealer's first recorded sale.",
+    "last_sale": "Date of the dealer's most recent sale. Null if they have never bought.",
+    "days_since_last_sale": "Days between the last sale and the latest date in the data. Null if they have never bought.",
+    "is_dormant": f"True when the dealer has not bought in over {DORMANT_AFTER_DAYS} days, or has never bought.",
+    "top_category": "Product line this dealer spends the most on.",
+    "as_of_date": "Latest transaction date in the dataset - the anchor every recency measure here is relative to.",
+}
 
 # Which management-chain column on dim_field_team grants access, and the role
 # that grant represents. Driven off dim_field_team's own columns so the
@@ -71,6 +150,21 @@ def _silver(table: str) -> DataFrame:
     return dlt.read(f"{SILVER}.{table}")
 
 
+def _documented(df: DataFrame, columns: dict) -> DataFrame:
+    """Project the listed columns, attaching each one's comment as column metadata.
+
+    Declaring the comments here rather than applying them with an ALTER
+    afterwards keeps the documentation inside the pipeline definition, so it is
+    republished on every refresh instead of being wiped by the next full one.
+    """
+    return df.select(
+        *[
+            F.col(name).alias(name, metadata={"comment": comment})
+            for name, comment in columns.items()
+        ]
+    )
+
+
 # ---------------------------------------------------------------------------
 # Conformed dimensions + fact
 # ---------------------------------------------------------------------------
@@ -82,7 +176,7 @@ def _make_dim(entity: str):
         comment=f"Gold: conformed {entity} dimension, business-ready.",
     )
     def _dim():
-        return _silver(f"dim_{entity}").select(*DIM_COLUMNS[entity])
+        return _documented(_silver(f"dim_{entity}"), DIM_COLUMNS[entity])
 
     return _dim
 
@@ -93,10 +187,124 @@ for _entity in DIM_COLUMNS:
 
 @dlt.table(
     name=f"{GOLD}.fact_sales_transaction",
-    comment="Gold: sales transactions at customer/date/category grain.",
+    comment="Gold: sales transactions at dealer/date/category grain.",
 )
 def gold_fact_sales_transaction():
-    return _silver("fact_sales_transaction").select(*FACT_COLUMNS)
+    return _documented(_silver("fact_sales_transaction"), FACT_COLUMNS)
+
+
+# ---------------------------------------------------------------------------
+# Serving aggregates
+#
+# Gold is a consumption layer, not a second copy of silver. These exist so a
+# dashboard tile answers from a few hundred pre-computed rows instead of
+# scanning the fact on every render, and so Genie has a table whose grain
+# already matches the questions people actually ask ("how is each territory
+# trending", "which dealers have gone quiet") rather than having to derive that
+# grain itself on every attempt.
+#
+# Both read from silver, like everything else here, so they stay leaves and can
+# safely carry their own row filters.
+# ---------------------------------------------------------------------------
+
+
+def _as_of(fact: DataFrame) -> DataFrame:
+    """Single-row frame holding the latest transaction date in the data.
+
+    Recency is measured against the data, not the clock: the seed data is fixed,
+    so anchoring on current_date would make the dormant flag drift every day the
+    demo is shown and quietly invalidate the expected counts.
+    """
+    return fact.select(F.max("transaction_date").alias("as_of_date"))
+
+
+@dlt.table(
+    name=f"{GOLD}.agg_sales_by_territory_month",
+    comment=(
+        "Gold: revenue, volume and active dealer count per territory per month. "
+        "Serves the trend and territory-comparison views."
+    ),
+)
+def gold_agg_sales_by_territory_month():
+    customer = _silver("dim_customer").select(
+        "customer_code", "field_team_code", "hierarchy_type", "division_id"
+    )
+    agg = (
+        _silver("fact_sales_transaction")
+        .join(customer, "customer_code", "inner")
+        .withColumn("month", F.trunc("transaction_date", "month"))
+        .groupBy("field_team_code", "hierarchy_type", "division_id", "month")
+        .agg(
+            F.sum("revenue").alias("revenue"),
+            F.sum("quantity").alias("quantity"),
+            F.count(F.lit(1)).alias("transactions"),
+            F.countDistinct("customer_code").alias("active_dealers"),
+        )
+    )
+    return _documented(agg, AGG_TERRITORY_MONTH_COLUMNS)
+
+
+@dlt.table(
+    name=f"{GOLD}.agg_dealer_scorecard",
+    comment=(
+        "Gold: one row per dealer with lifetime and recent value, recency and a "
+        "dormancy flag. Answers 'which dealers need attention' without a "
+        "hand-written query."
+    ),
+)
+def gold_agg_dealer_scorecard():
+    fact = _silver("fact_sales_transaction")
+    customer = _silver("dim_customer")
+    as_of = _as_of(fact)
+
+    lifetime = fact.groupBy("customer_code").agg(
+        F.sum("revenue").alias("revenue_total"),
+        F.count(F.lit(1)).alias("transactions"),
+        F.min("transaction_date").alias("first_sale"),
+        F.max("transaction_date").alias("last_sale"),
+    )
+
+    recent = (
+        fact.crossJoin(as_of)
+        .filter(F.datediff("as_of_date", "transaction_date") <= RECENT_WINDOW_DAYS)
+        .groupBy("customer_code")
+        .agg(F.sum("revenue").alias("revenue_recent"))
+    )
+
+    # Highest-revenue category per dealer. Ties break on category name so the
+    # result is deterministic across runs.
+    top_category = (
+        fact.groupBy("customer_code", "product_category")
+        .agg(F.sum("revenue").alias("category_revenue"))
+        .withColumn(
+            "_rank",
+            F.row_number().over(
+                Window.partitionBy("customer_code").orderBy(
+                    F.col("category_revenue").desc(), F.col("product_category").asc()
+                )
+            ),
+        )
+        .filter(F.col("_rank") == 1)
+        .select("customer_code", F.col("product_category").alias("top_category"))
+    )
+
+    # Left joins throughout: a dealer with no sales at all is a real and
+    # interesting row on this table, not one to drop.
+    scorecard = (
+        customer.join(lifetime, "customer_code", "left")
+        .join(recent, "customer_code", "left")
+        .join(top_category, "customer_code", "left")
+        .crossJoin(as_of)
+        .withColumn("revenue_total", F.coalesce("revenue_total", F.lit(0).cast("decimal(18,2)")))
+        .withColumn("revenue_recent", F.coalesce("revenue_recent", F.lit(0).cast("decimal(18,2)")))
+        .withColumn("transactions", F.coalesce("transactions", F.lit(0).cast("bigint")))
+        .withColumn("days_since_last_sale", F.datediff("as_of_date", "last_sale"))
+        .withColumn(
+            "is_dormant",
+            F.coalesce(F.col("days_since_last_sale") > DORMANT_AFTER_DAYS, F.lit(True)),
+        )
+    )
+    return _documented(scorecard, AGG_DEALER_SCORECARD_COLUMNS)
 
 
 # ---------------------------------------------------------------------------

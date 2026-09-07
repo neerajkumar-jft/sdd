@@ -99,6 +99,16 @@ ALTER TABLE pidilite_demo.gold.dim_customer
 ALTER TABLE pidilite_demo.gold.dim_field_team
   SET ROW FILTER pidilite_demo.gold.can_see_field_team ON (field_team_code, hierarchy_type);
 
+-- The serving aggregates need filtering too, and for the same reason the detail
+-- tables do: each row belongs to exactly one territory or one dealer, so
+-- filtering rows is the whole job - no figure on these tables is summed across
+-- anyone else's scope, so nothing leaks through the aggregate itself.
+ALTER TABLE pidilite_demo.gold.agg_sales_by_territory_month
+  SET ROW FILTER pidilite_demo.gold.can_see_field_team ON (field_team_code, hierarchy_type);
+
+ALTER TABLE pidilite_demo.gold.agg_dealer_scorecard
+  SET ROW FILTER pidilite_demo.gold.can_see_customer ON (customer_code);
+
 -- Deliberately NOT filtered, and worth saying out loud rather than leaving
 -- unexplained:
 --   * gold.dim_person   - the internal org roster. Genie needs it to answer
@@ -115,6 +125,8 @@ ALTER TABLE pidilite_demo.gold.dim_field_team
 --   ALTER TABLE pidilite_demo.gold.fact_sales_transaction DROP ROW FILTER;
 --   ALTER TABLE pidilite_demo.gold.dim_customer          DROP ROW FILTER;
 --   ALTER TABLE pidilite_demo.gold.dim_field_team        DROP ROW FILTER;
+--   ALTER TABLE pidilite_demo.gold.agg_sales_by_territory_month DROP ROW FILTER;
+--   ALTER TABLE pidilite_demo.gold.agg_dealer_scorecard         DROP ROW FILTER;
 
 
 -- -----------------------------------------------------------------------------
@@ -136,6 +148,8 @@ ALTER TABLE pidilite_demo.gold.dim_field_team
 -- GRANT SELECT ON TABLE pidilite_demo.gold.dim_field_team         TO `<persona>`;
 -- GRANT SELECT ON TABLE pidilite_demo.gold.dim_person             TO `<persona>`;
 -- GRANT SELECT ON TABLE pidilite_demo.gold.dim_division           TO `<persona>`;
+-- GRANT SELECT ON TABLE pidilite_demo.gold.agg_sales_by_territory_month TO `<persona>`;
+-- GRANT SELECT ON TABLE pidilite_demo.gold.agg_dealer_scorecard         TO `<persona>`;
 --
 -- GRANT EXECUTE ON FUNCTION pidilite_demo.gold.can_see_customer   TO `<persona>`;
 -- GRANT EXECUTE ON FUNCTION pidilite_demo.gold.can_see_field_team TO `<persona>`;

@@ -46,6 +46,8 @@ ORDER BY customers_expected DESC, p.role, p.person_name;
 DESCRIBE TABLE EXTENDED pidilite_demo.gold.fact_sales_transaction;
 DESCRIBE TABLE EXTENDED pidilite_demo.gold.dim_customer;
 DESCRIBE TABLE EXTENDED pidilite_demo.gold.dim_field_team;
+DESCRIBE TABLE EXTENDED pidilite_demo.gold.agg_sales_by_territory_month;
+DESCRIBE TABLE EXTENDED pidilite_demo.gold.agg_dealer_scorecard;
 
 -- Catalog-wide view of every filter in place. Inspect the column names on
 -- first run rather than assuming them - this view's shape is not something to
@@ -118,6 +120,8 @@ UNION ALL SELECT 'gold.dim_customer',          count(*) FROM pidilite_demo.gold.
 UNION ALL SELECT 'gold.fact_sales_transaction',count(*) FROM pidilite_demo.gold.fact_sales_transaction
 UNION ALL SELECT 'gold.access_map_customer',   count(*) FROM pidilite_demo.gold.access_map_customer
 UNION ALL SELECT 'gold.access_map_field_team', count(*) FROM pidilite_demo.gold.access_map_field_team
+UNION ALL SELECT 'gold.agg_sales_by_territory_month', count(*) FROM pidilite_demo.gold.agg_sales_by_territory_month
+UNION ALL SELECT 'gold.agg_dealer_scorecard', count(*) FROM pidilite_demo.gold.agg_dealer_scorecard
 ORDER BY tbl;
 
 -- Expected, from the current generated seed (tests/verify_access_map_logic.py):
@@ -128,7 +132,16 @@ ORDER BY tbl;
 --   fact_sales_transaction   3662      (3666 generated, 4 quarantined)
 --   access_map_field_team     119
 --   access_map_customer       847
+--   agg_sales_by_territory_month  287   (18 months x 16 of 17 territories that
+--                                        have dealers - WSSTTY5/MDI has none)
+--   agg_dealer_scorecard      121      (one row per dealer, 28 of them dormant,
+--                                        2 of those having never bought at all)
 -- A zero anywhere here is the failure this check exists to catch.
+--
+-- The aggregates anchor recency on the data, not the clock: as_of_date is the
+-- latest transaction in the fact, currently 2026-08-31. If that column shows
+-- today's date instead, _as_of() has been changed to current_date and every
+-- dormancy figure will drift each day the demo is shown.
 
 
 -- -----------------------------------------------------------------------------
@@ -150,6 +163,14 @@ UNION ALL
 SELECT 'fact_sales_transaction', _quarantine_reasons, count(*)
   FROM pidilite_demo.silver.fact_sales_transaction_quarantine GROUP BY ALL
 ORDER BY entity;
+
+-- Column comments should be present on every gold table - Genie reads them to
+-- pick the column that answers a question, so an empty comment column here is a
+-- silent downgrade in answer quality rather than an error.
+SELECT table_name, column_name, comment
+FROM pidilite_demo.information_schema.columns
+WHERE table_schema = 'gold' AND (comment IS NULL OR comment = '')
+ORDER BY table_name, ordinal_position;
 
 -- Also worth showing: the client's own column typo being repaired.
 -- bronze.raw_field_team has a `Tzxntyoe` column; silver.dim_field_team has
