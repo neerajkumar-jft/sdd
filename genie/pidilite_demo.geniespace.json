@@ -1,0 +1,464 @@
+{
+  "version": 2,
+  "data_sources": {
+    "tables": [
+      { "identifier": "pidilite_demo.gold.dim_division" },
+      { "identifier": "pidilite_demo.gold.dim_person" },
+      { "identifier": "pidilite_demo.gold.dim_field_team" },
+      { "identifier": "pidilite_demo.gold.dim_customer" },
+      { "identifier": "pidilite_demo.gold.fact_sales_transaction" },
+      { "identifier": "pidilite_demo.gold.agg_sales_by_territory_month" },
+      { "identifier": "pidilite_demo.gold.agg_dealer_scorecard" }
+    ]
+  },
+  "instructions": {
+    "text_instructions": [
+      {
+        "content": [
+          "# What this space answers",
+          "",
+          "Sales performance for a field-sales organization: dealers (retailers), the",
+          "territories that serve them, the management chain above those territories,",
+          "and the transactions against that dealer network.",
+          "",
+          "# Vocabulary — use the business terms, not the column names",
+          "",
+          "* **Field team** = a sales **territory**. Column: `field_team_code`.",
+          "* **Master** = **Territory/Area Sales Manager** — owns one territory.",
+          "* **RA1** = **Regional/Zonal Sales Manager** — several territories.",
+          "* **RA2** = **National Sales Manager** — a whole hierarchy nationally.",
+          "* **HO** = **Head Office** — visibility across every division.",
+          "* **Dealer**, **retailer** and **customer** all mean the same thing: a row in",
+          "  `dim_customer`. Prefer the word \"dealer\".",
+          "* **Division** = business line, e.g. Consumer & Bazaar.",
+          "",
+          "# Two parallel hierarchies — this matters more than anything else here",
+          "",
+          "There are two independent management chains: **Sales Hierarchy** and",
+          "**MDI Hierarchy** (column `hierarchy_type`).",
+          "",
+          "A `field_team_code` is NOT unique on its own. The same code can exist under",
+          "both chains with completely different managers and different dealers. Five",
+          "codes in this data do exactly that.",
+          "",
+          "So whenever you join, group or filter on a territory, you MUST carry",
+          "`hierarchy_type` alongside `field_team_code`. Joining on the code alone",
+          "silently merges two unrelated territories into one answer.",
+          "",
+          "When a question names a territory without saying which chain, return both",
+          "chains as separate rows and label them, rather than picking one.",
+          "",
+          "# Row-level security — do not work around it",
+          "",
+          "These tables are governed by Unity Catalog row filters keyed on the signed-in",
+          "user. Each person automatically sees only the dealers their position in the",
+          "hierarchy entitles them to. A Territory Manager sees their own dealers, a",
+          "Zonal Manager sees everything under their territories, Head Office sees all.",
+          "",
+          "Consequences for how you write SQL:",
+          "",
+          "* Never add a `WHERE user_email = ...` or any user/person predicate to scope",
+          "  results. Scoping already happened before your query ran. Adding your own",
+          "  filter double-filters and returns nothing.",
+          "* \"my dealers\", \"my territory\", \"my sales\", \"my region\" need NO extra",
+          "  filter at all. Just query the table; it is already their slice.",
+          "* If a query returns no rows, say \"there is no data visible to you for that\",",
+          "  not \"that dealer does not exist\". It may exist and be outside their scope.",
+          "* Never suggest querying an access-map or entitlement table to widen scope.",
+          "",
+          "# Which table to use",
+          "",
+          "* **Trends over time, territory comparison** → `agg_sales_by_territory_month`",
+          "  (pre-aggregated per territory per month). Prefer this over the fact table",
+          "  for any \"how is X trending\" or \"month by month\" question.",
+          "* **Dealer health — dormant, recency, lifetime value, top category per dealer**",
+          "  → `agg_dealer_scorecard` (one row per dealer, already computed).",
+          "* **Anything at individual-transaction grain, or split by product category**",
+          "  → `fact_sales_transaction`, joined to `dim_customer` for territory/geography",
+          "  and through `dim_customer.division_id` to `dim_division` for the business line.",
+          "* **Who manages what** → `dim_field_team` joined three times to `dim_person`",
+          "  on `master_person_id`, `ra1_person_id` and `ra2_person_id`.",
+          "",
+          "`fact_sales_transaction.salesperson_id` is the Territory/Area Sales Manager",
+          "credited with the sale. It joins to `dim_person.person_id`.",
+          "",
+          "# Dates",
+          "",
+          "This is a fixed dataset, not a live feed. It ends on **2026-08-31**. Never",
+          "anchor a relative period on `current_date()` — it will return nothing.",
+          "Anchor on the data instead:",
+          "",
+          "    (SELECT max(transaction_date) FROM pidilite_demo.gold.fact_sales_transaction)",
+          "",
+          "`agg_dealer_scorecard.as_of_date` holds the same anchor date if you are",
+          "already querying that table.",
+          "",
+          "The organization runs an **April–March fiscal year**. \"This year\", \"YTD\" and",
+          "\"last year\" mean fiscal, not calendar, unless the question says calendar.",
+          "Quarters are Q1 = Apr–Jun, Q2 = Jul–Sep, Q3 = Oct–Dec, Q4 = Jan–Mar. When a",
+          "question is ambiguous about this, state which convention you used.",
+          "",
+          "# Money and units",
+          "",
+          "Revenue is in **Indian rupees**. Format large figures the way the business",
+          "reads them: **lakh** (1 lakh = 100,000) and **crore** (1 crore = 10,000,000).",
+          "Write \"₹4.83 L\" or \"₹13.71 Cr\", not \"48300000.00\". Quantity is units sold,",
+          "not a currency.",
+          "",
+          "# Definitions",
+          "",
+          "* **Dormant dealer** — no purchase in more than 180 days as of the anchor",
+          "  date. Already computed as `agg_dealer_scorecard.is_dormant`; use that",
+          "  column rather than recalculating.",
+          "* **Active dealer (in a month)** — bought at least once that month. Already",
+          "  computed as `agg_sales_by_territory_month.active_dealers`.",
+          "* **Recent** — the trailing 90 days from the anchor date, matching",
+          "  `agg_dealer_scorecard.revenue_recent`.",
+          "",
+          "# Do not invent",
+          "",
+          "There is no target, quota, budget, margin, cost, discount, stock or",
+          "competitor data in this space. If a question needs one of those, say plainly",
+          "that the metric is not available rather than substituting revenue for it or",
+          "estimating. Say what IS available that comes closest."
+        ]
+      }
+    ],
+    "example_question_sqls": [
+      {
+        "question": [
+          "Who are my top 5 dealers by revenue in the last quarter?"
+        ],
+        "sql": [
+          "-- 'my' needs no user predicate: the row filter has already scoped the table.",
+          "-- 'last quarter' is anchored on the data's own maximum date, not current_date.",
+          "SELECT c.customer_code,",
+          "       c.customer_name,",
+          "       c.city,",
+          "       c.field_team_code,",
+          "       c.hierarchy_type,",
+          "       sum(f.revenue) AS revenue",
+          "FROM pidilite_demo.gold.fact_sales_transaction f",
+          "JOIN pidilite_demo.gold.dim_customer c",
+          "  ON c.customer_code = f.customer_code",
+          "WHERE f.transaction_date > add_months(",
+          "        (SELECT max(transaction_date) FROM pidilite_demo.gold.fact_sales_transaction), -3)",
+          "GROUP BY c.customer_code, c.customer_name, c.city, c.field_team_code, c.hierarchy_type",
+          "ORDER BY revenue DESC",
+          "LIMIT 5"
+        ]
+      },
+      {
+        "question": [
+          "How is each territory trending over the last 12 months?"
+        ],
+        "sql": [
+          "-- Use the pre-aggregated table for trend questions, and always carry",
+          "-- hierarchy_type: field_team_code alone merges two different territories.",
+          "SELECT field_team_code,",
+          "       hierarchy_type,",
+          "       month,",
+          "       revenue,",
+          "       transactions,",
+          "       active_dealers",
+          "FROM pidilite_demo.gold.agg_sales_by_territory_month",
+          "WHERE month > add_months(",
+          "        (SELECT max(month) FROM pidilite_demo.gold.agg_sales_by_territory_month), -12)",
+          "ORDER BY field_team_code, hierarchy_type, month"
+        ]
+      },
+      {
+        "question": [
+          "Which dealers have gone quiet and how much were they worth?"
+        ],
+        "sql": [
+          "-- Dormancy is already computed on the scorecard; do not recalculate it.",
+          "SELECT customer_code,",
+          "       customer_name,",
+          "       city,",
+          "       field_team_code,",
+          "       hierarchy_type,",
+          "       last_sale,",
+          "       days_since_last_sale,",
+          "       revenue_total",
+          "FROM pidilite_demo.gold.agg_dealer_scorecard",
+          "WHERE is_dormant",
+          "ORDER BY revenue_total DESC"
+        ]
+      },
+      {
+        "question": [
+          "Who manages territory WSSTTY3?"
+        ],
+        "sql": [
+          "-- A territory code can exist under BOTH hierarchies with different managers,",
+          "-- so this deliberately returns one row per chain rather than picking one.",
+          "SELECT ft.field_team_code,",
+          "       ft.hierarchy_type,",
+          "       d.division_name,",
+          "       m.person_name  AS territory_manager,",
+          "       r1.person_name AS zonal_manager,",
+          "       r2.person_name AS national_manager",
+          "FROM pidilite_demo.gold.dim_field_team ft",
+          "JOIN pidilite_demo.gold.dim_division d  ON d.division_id  = ft.division_id",
+          "LEFT JOIN pidilite_demo.gold.dim_person m  ON m.person_id  = ft.master_person_id",
+          "LEFT JOIN pidilite_demo.gold.dim_person r1 ON r1.person_id = ft.ra1_person_id",
+          "LEFT JOIN pidilite_demo.gold.dim_person r2 ON r2.person_id = ft.ra2_person_id",
+          "WHERE ft.field_team_code = 'WSSTTY3'",
+          "ORDER BY ft.hierarchy_type"
+        ]
+      },
+      {
+        "question": [
+          "Break my revenue down by division and product category"
+        ],
+        "sql": [
+          "-- product_category lives on the fact; division comes via dim_customer.",
+          "SELECT d.division_name,",
+          "       f.product_category,",
+          "       sum(f.revenue)   AS revenue,",
+          "       sum(f.quantity)  AS units,",
+          "       count(*)         AS transactions",
+          "FROM pidilite_demo.gold.fact_sales_transaction f",
+          "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
+          "JOIN pidilite_demo.gold.dim_division d ON d.division_id   = c.division_id",
+          "GROUP BY d.division_name, f.product_category",
+          "ORDER BY revenue DESC"
+        ]
+      },
+      {
+        "question": [
+          "What is my total business and how many dealers do I cover?"
+        ],
+        "sql": [
+          "-- No user predicate anywhere. Whatever this returns IS the signed-in user's",
+          "-- scope, because the row filter applied before the query ran.",
+          "SELECT count(DISTINCT c.customer_code) AS dealers,",
+          "       count(DISTINCT c.field_team_code || '|' || c.hierarchy_type) AS territories,",
+          "       count(*)                        AS transactions,",
+          "       sum(f.revenue)                  AS revenue",
+          "FROM pidilite_demo.gold.fact_sales_transaction f",
+          "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code"
+        ]
+      },
+      {
+        "question": [
+          "Compare the Sales Hierarchy and the MDI Hierarchy by revenue"
+        ],
+        "sql": [
+          "-- The two chains are reported separately; never sum them into one figure",
+          "-- without labelling which is which.",
+          "SELECT c.hierarchy_type,",
+          "       count(DISTINCT c.customer_code) AS dealers,",
+          "       sum(f.revenue)                  AS revenue",
+          "FROM pidilite_demo.gold.fact_sales_transaction f",
+          "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
+          "GROUP BY c.hierarchy_type",
+          "ORDER BY revenue DESC"
+        ]
+      }
+    ]
+  },
+  "config": {
+    "sample_questions": [
+      { "question": ["What is my total revenue and how many dealers do I cover?"] },
+      { "question": ["Who are my top 5 dealers by revenue in the last quarter?"] },
+      { "question": ["Which of my dealers have gone quiet?"] },
+      { "question": ["How is each of my territories trending over the last 12 months?"] },
+      { "question": ["Break my revenue down by division and product category"] }
+    ]
+  },
+  "benchmarks": {
+    "questions": [
+      {
+        "question": ["What is my total revenue and how many dealers do I cover?"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT count(DISTINCT c.customer_code) AS dealers,",
+              "       count(*)       AS transactions,",
+              "       sum(f.revenue) AS revenue",
+              "FROM pidilite_demo.gold.fact_sales_transaction f",
+              "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["Who are my top 5 dealers by revenue in the last quarter?"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT c.customer_code, c.customer_name, sum(f.revenue) AS revenue",
+              "FROM pidilite_demo.gold.fact_sales_transaction f",
+              "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
+              "WHERE f.transaction_date > add_months(",
+              "        (SELECT max(transaction_date) FROM pidilite_demo.gold.fact_sales_transaction), -3)",
+              "GROUP BY c.customer_code, c.customer_name",
+              "ORDER BY revenue DESC",
+              "LIMIT 5"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["Which dealers have gone quiet?"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT customer_code, customer_name, last_sale, days_since_last_sale, revenue_total",
+              "FROM pidilite_demo.gold.agg_dealer_scorecard",
+              "WHERE is_dormant",
+              "ORDER BY revenue_total DESC"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["How many dormant dealers do I have?"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT count(*) AS dormant_dealers",
+              "FROM pidilite_demo.gold.agg_dealer_scorecard",
+              "WHERE is_dormant"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["How is each territory trending month by month over the last 12 months?"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT field_team_code, hierarchy_type, month, revenue, active_dealers",
+              "FROM pidilite_demo.gold.agg_sales_by_territory_month",
+              "WHERE month > add_months(",
+              "        (SELECT max(month) FROM pidilite_demo.gold.agg_sales_by_territory_month), -12)",
+              "ORDER BY field_team_code, hierarchy_type, month"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["Which month was my best by revenue?"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT date_trunc('MONTH', f.transaction_date) AS month,",
+              "       sum(f.revenue) AS revenue",
+              "FROM pidilite_demo.gold.fact_sales_transaction f",
+              "GROUP BY date_trunc('MONTH', f.transaction_date)",
+              "ORDER BY revenue DESC",
+              "LIMIT 1"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["Break my revenue down by division"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT d.division_name, sum(f.revenue) AS revenue",
+              "FROM pidilite_demo.gold.fact_sales_transaction f",
+              "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
+              "JOIN pidilite_demo.gold.dim_division d ON d.division_id   = c.division_id",
+              "GROUP BY d.division_name",
+              "ORDER BY revenue DESC"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["Which product category sells the most for me?"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT f.product_category, sum(f.revenue) AS revenue, sum(f.quantity) AS units",
+              "FROM pidilite_demo.gold.fact_sales_transaction f",
+              "GROUP BY f.product_category",
+              "ORDER BY revenue DESC"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["Who manages territory WSSTTY3?"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT ft.field_team_code, ft.hierarchy_type,",
+              "       m.person_name AS territory_manager,",
+              "       r1.person_name AS zonal_manager,",
+              "       r2.person_name AS national_manager",
+              "FROM pidilite_demo.gold.dim_field_team ft",
+              "LEFT JOIN pidilite_demo.gold.dim_person m  ON m.person_id  = ft.master_person_id",
+              "LEFT JOIN pidilite_demo.gold.dim_person r1 ON r1.person_id = ft.ra1_person_id",
+              "LEFT JOIN pidilite_demo.gold.dim_person r2 ON r2.person_id = ft.ra2_person_id",
+              "WHERE ft.field_team_code = 'WSSTTY3'",
+              "ORDER BY ft.hierarchy_type"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["Compare the Sales Hierarchy and the MDI Hierarchy by revenue"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT c.hierarchy_type,",
+              "       count(DISTINCT c.customer_code) AS dealers,",
+              "       sum(f.revenue) AS revenue",
+              "FROM pidilite_demo.gold.fact_sales_transaction f",
+              "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
+              "GROUP BY c.hierarchy_type",
+              "ORDER BY revenue DESC"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["Which cities do my dealers sell from, ranked by revenue?"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT c.city, c.state,",
+              "       count(DISTINCT c.customer_code) AS dealers,",
+              "       sum(f.revenue) AS revenue",
+              "FROM pidilite_demo.gold.fact_sales_transaction f",
+              "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
+              "GROUP BY c.city, c.state",
+              "ORDER BY revenue DESC"
+            ]
+          }
+        ]
+      },
+      {
+        "question": ["How many territories do I cover and which is the largest by revenue?"],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT field_team_code, hierarchy_type, sum(revenue) AS revenue",
+              "FROM pidilite_demo.gold.agg_sales_by_territory_month",
+              "GROUP BY field_team_code, hierarchy_type",
+              "ORDER BY revenue DESC"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

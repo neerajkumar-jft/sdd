@@ -36,7 +36,7 @@ Gold:   pidilite_demo.gold.dim_*/fact_sales_transaction
         pidilite_demo.gold.access_map_field_team   (entitlements, user_email → field_team_code)
         │  row filters keyed on current_user()
         ▼
-        AI/BI Dashboard + Genie space (not yet built)
+        Genie space (natural language)  ·  AI/BI Dashboard (not yet built)
 ```
 
 Bronze, silver and gold run as **one pipeline** with three source files
@@ -142,7 +142,9 @@ Recorded rather than hidden, because the client's reporting team will find them:
 
 ```
 databricks.yml                          # bundle config (workspace, targets)
-resources/pidilite_demo.pipeline.yml    # pipeline resource definition
+resources/
+├── pidilite_demo.pipeline.yml          # pipeline resource definition
+└── pidilite_demo.genie_space.yml       # Genie space resource definition
 src/pidilite_demo/
 ├── bronze.py                           # Auto Loader ingestion, one stream per entity
 ├── silver.py                           # cleansing, canonicalization, quarantine framework
@@ -150,6 +152,12 @@ src/pidilite_demo/
 sql/
 ├── 01_row_filters.sql                  # filter functions, ALTER ... SET ROW FILTER, grants
 └── 02_verify_rls.sql                   # RLS verification checklist
+dashboards/
+├── x_industries_sales_overview.lvdash.json          # AI/BI dashboard definition
+└── x_industries_sales_overview.dashboard.yml.reference  # bundle config, deliberately NOT wired in
+genie/
+├── pidilite_demo.geniespace.json       # Genie space definition (tables, instructions, benchmarks)
+└── question_bank.md                    # per-persona questions with ground-truth answers
 tests/
 └── verify_access_map_logic.py          # offline entitlement-algebra test (no workspace needed)
 data_generation/
@@ -158,6 +166,79 @@ data_generation/
 sample_data/                            # generated source files, landed into the bronze volume
 ├── division/  ├── person/  ├── field_team/  ├── customer/  └── sales_transaction/
 ```
+
+## AI/BI dashboard
+
+`dashboards/x_industries_sales_overview.lvdash.json` — KPI counters, revenue
+trend by month, revenue by territory and category, top 10 dealers, and the full
+dealer scorecard, all querying `pidilite_demo.gold.*` directly so the row
+filters apply live per viewer. One dashboard object for everyone; the scope
+narrows by itself.
+
+Two details that matter more than they look:
+
+- **Published without `embed_credentials`**, so each viewer's own identity runs
+  the queries rather than the publisher's. With credentials embedded, every
+  viewer would see the publisher's scope and row-level security would be
+  bypassed entirely.
+- **Its bundle config is kept as a `.reference` file outside `resources/`** on
+  purpose. `bundle deploy` wants to *recreate* the dashboard with a new id and
+  URL, which would invalidate the permissions already granted to the four
+  personas. Check whether that recreate warning still applies before wiring it
+  in, and re-grant afterwards if it does.
+
+## Genie space
+
+Deployed as code with the rest of the bundle — `resources/pidilite_demo.genie_space.yml`
+points at `genie/pidilite_demo.geniespace.json`, which holds the attached tables,
+the instructions, curated example SQL, starter questions and a benchmark set.
+
+**Seven gold tables are attached. The two access maps deliberately are not.**
+Those hold the entitlements themselves; a user needs `EXECUTE` on the filter
+function, never read access to the map, and Genie has no business surfacing one.
+
+Because the attached tables carry row filters, **answers are scoped to whoever
+is asking** with no work in the space itself — the same question returns
+₹0.50 Cr to a Territory Manager and ₹15.89 Cr to Head Office.
+
+What the instructions have to teach it, and why:
+
+- **Vocabulary** — Field Team = territory, Master / RA1 / RA2 = Territory /
+  Zonal / National Sales Manager. Answers should use the business's words.
+- **`field_team_code` is not a key.** Five codes exist under both management
+  chains with different managers, so every join must carry `hierarchy_type`
+  too. Joining on the code alone silently merges two unrelated territories.
+- **Do not work around the row filter.** "My dealers" needs *no* predicate —
+  scoping already happened. Adding `WHERE user_email = ...` double-filters to
+  zero rows. And an empty result means "nothing visible to you", not "does not
+  exist".
+- **Which table for which question** — trends from `agg_sales_by_territory_month`,
+  dealer health from `agg_dealer_scorecard`, transaction detail from the fact.
+- **Dates** — the dataset is fixed and ends 2026-08-31, so relative periods
+  anchor on `max(transaction_date)`, never `current_date()`. The fiscal year
+  runs April–March.
+- **Money** — rupees, formatted in lakh and crore, not raw digits.
+- **Do not invent** — there is no target, quota, margin or stock data. Say so
+  rather than substituting revenue.
+
+### Measuring it instead of trusting it
+
+The space carries 12 **benchmark** questions with their expected SQL, so
+accuracy is a number rather than an impression:
+
+```bash
+databricks genie genie-create-eval-run   --profile <profile>
+databricks genie genie-list-eval-results --profile <profile>
+```
+
+`genie/question_bank.md` holds 8–9 questions per persona with the **correct
+answer computed from the source CSVs**, plus the six failure modes worth testing
+before a client sees them (relative dates, fiscal year, summing the two chains,
+self-filtering, dropping `hierarchy_type`, inventing absent metrics).
+
+Note that `databricks genie ask` and the eval runs execute as whoever the CLI
+profile authenticates as. A profile that is not in the access map sees zero rows
+and every answer looks empty — test personas from their own login.
 
 ## Prerequisites
 
