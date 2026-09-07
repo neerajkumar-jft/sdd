@@ -27,6 +27,13 @@
       "queryLines": [
         "SELECT customer_name, revenue_total FROM pidilite_demo.gold.agg_dealer_scorecard ORDER BY revenue_total DESC LIMIT 10"
       ]
+    },
+    {
+      "displayName": "comments",
+      "name": "e437394b",
+      "queryLines": [
+        "SELECT scope_type, scope_id, user_email, comment_text, created_at FROM pidilite_comments.public.comments ORDER BY created_at DESC"
+      ]
     }
   ],
   "pages": [
@@ -670,6 +677,159 @@
                 "showDescription": false,
                 "showTitle": true,
                 "title": "Dealer Scorecard"
+              },
+              "invisibleColumns": [],
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "version": 1,
+              "widgetType": "table",
+              "withRowNumber": false
+            }
+          }
+        },
+        {
+          "position": {
+            "height": 2,
+            "width": 6,
+            "x": 0,
+            "y": 29
+          },
+          "widget": {
+            "multilineTextboxSpec": {
+              "lines": [
+                "### 💬 Comments\n",
+                "[➕ Add a comment on a customer or field team](https://pidilite-comments-app-7474658069346952.aws.databricksapps.com)"
+              ]
+            },
+            "name": "e879505b"
+          }
+        },
+        {
+          "position": {
+            "height": 8,
+            "width": 6,
+            "x": 0,
+            "y": 31
+          },
+          "widget": {
+            "name": "280230bd",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "e437394b",
+                  "disaggregated": true,
+                  "fields": [
+                    {
+                      "expression": "`scope_type`",
+                      "name": "scope_type"
+                    },
+                    {
+                      "expression": "`scope_id`",
+                      "name": "scope_id"
+                    },
+                    {
+                      "expression": "`user_email`",
+                      "name": "user_email"
+                    },
+                    {
+                      "expression": "`comment_text`",
+                      "name": "comment_text"
+                    },
+                    {
+                      "expression": "`created_at`",
+                      "name": "created_at"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "allowHTMLByDefault": false,
+              "condensed": false,
+              "encodings": {
+                "columns": [
+                  {
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "string",
+                    "displayName": "Scope",
+                    "fieldName": "scope_type",
+                    "title": "Scope",
+                    "type": "string",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "string",
+                    "displayName": "Record",
+                    "fieldName": "scope_id",
+                    "title": "Record",
+                    "type": "string",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "string",
+                    "displayName": "Author",
+                    "fieldName": "user_email",
+                    "title": "Author",
+                    "type": "string",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "string",
+                    "displayName": "Comment",
+                    "fieldName": "comment_text",
+                    "title": "Comment",
+                    "type": "string",
+                    "visible": true
+                  },
+                  {
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "allowSearch": false,
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "displayAs": "datetime",
+                    "displayName": "Posted",
+                    "fieldName": "created_at",
+                    "title": "Posted",
+                    "type": "datetime",
+                    "visible": true
+                  }
+                ]
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Recent Comments"
               },
               "invisibleColumns": [],
               "itemsPerPage": 25,

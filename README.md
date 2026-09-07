@@ -36,7 +36,15 @@ Gold:   pidilite_demo.gold.dim_*/fact_sales_transaction
         pidilite_demo.gold.access_map_field_team   (entitlements, user_email → field_team_code)
         │  row filters keyed on current_user()
         ▼
-        Genie space (natural language)  ·  AI/BI Dashboard (not yet built)
+        Genie space (natural language)  ·  AI/BI Dashboard
+
+Lakebase (OLTP Postgres, separate from the pipeline above)
+        pidilite-comments instance → public.comments table
+        │  registered as a UC catalog (pidilite_comments) - live federation,
+        │  no separate sync job: a write is queryable from the analytical
+        │  side immediately, verified end to end
+        ▼
+        Dashboard's "Recent Comments" widget (read)  ·  comment app (write)
 ```
 
 Bronze, silver and gold run as **one pipeline** with three source files
@@ -158,6 +166,13 @@ dashboards/
 genie/
 ├── pidilite_demo.geniespace.json       # Genie space definition (tables, instructions, benchmarks)
 └── question_bank.md                    # per-persona questions with ground-truth answers
+lakebase/
+├── 01_create_comments_table.sql        # OLTP comments table DDL
+└── 02_grants.sql                       # app service principal + persona grants
+app/
+├── app.py                               # comment form + auth check + recent comments (Streamlit)
+├── app.yaml                             # Databricks App run command
+└── requirements.txt
 tests/
 └── verify_access_map_logic.py          # offline entitlement-algebra test (no workspace needed)
 data_generation/
@@ -186,6 +201,46 @@ Two details that matter more than they look:
   URL, which would invalidate the permissions already granted to the four
   personas. Check whether that recreate warning still applies before wiring it
   in, and re-grant afterwards if it does.
+
+## Lakebase comments
+
+A `pidilite-comments` Lakebase (OLTP Postgres) instance holds one table,
+`public.comments` (`comment_id`, `scope_type`, `scope_id`, `user_email`,
+`comment_text`, `created_at`) — see `lakebase/01_create_comments_table.sql`.
+High-frequency, low-latency interactive writes are a poor fit for a batch
+Delta table, which is the whole reason this piece exists in Postgres at all.
+
+**Read side:** a UC catalog (`pidilite_comments`) is registered directly on
+top of the instance (`databricks database create-database-catalog ...`).
+This is a **live federation**, not a periodic sync — verified end to end: a
+row written via a direct Postgres connection is queryable through
+`pidilite_comments.public.comments` immediately. No scheduled sync job is
+needed, which is simpler than the build guide's original assumption of
+"sync on a short interval." The dashboard's "Recent Comments" table widget
+and Genie both read through this same UC path — that route is **read-only**;
+Unity Catalog rejects writes against a federated foreign table.
+
+**Write side:** since AI/BI dashboards have no native form/write-back widget
+type (only display widgets — counter, table, bar, line, etc.), writing a
+comment goes through a small companion **Databricks App**
+(`app/app.py`, a single-page Streamlit form) rather than anything embedded
+inside the dashboard canvas itself. The dashboard carries a text-widget link
+to it. The app:
+
+- reads the viewer's real identity from the `X-Forwarded-Email` header
+  Databricks Apps forwards automatically,
+- **enforces the same access rule as the dashboard** before allowing a
+  write — checks `pidilite_demo.gold.access_map_customer` /
+  `access_map_field_team` for that user via the app's own service principal
+  (granted narrow `SELECT` on just those two tables — never exposed to end
+  users, same reasoning as the row-filter grants never handing out direct
+  map access), verified for both an authorized and a rejected case,
+- then writes to Postgres using a Lakebase OAuth database credential
+  (`generate_database_credential`, refreshed periodically) rather than a
+  static password.
+
+Grants for both the app's service principal and each persona's read access
+to the comments table are in `lakebase/02_grants.sql`.
 
 ## Genie space
 
