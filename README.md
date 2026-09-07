@@ -44,7 +44,7 @@ Lakebase (OLTP Postgres, separate from the pipeline above)
         │  no separate sync job: a write is queryable from the analytical
         │  side immediately, verified end to end
         ▼
-        Dashboard's "Recent Comments" widget (read)  ·  comment app (write)
+        Scoped dashboard app (read, per-viewer via OBO)  ·  comment app (write)
 ```
 
 Bronze, silver and gold run as **one pipeline** with three source files
