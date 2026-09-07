@@ -30,8 +30,8 @@ Silver: pidilite_demo.silver.dim_*/fact_*             (cleansed, validated)
         pidilite_demo.silver.dim_*/fact_*_quarantine  (rows failing validation, held for review)
         ▼
 Gold:   pidilite_demo.gold.dim_*/fact_sales_transaction
-        pidilite_demo.gold.agg_sales_by_territory_month  (serving, 287 rows)
-        pidilite_demo.gold.agg_dealer_scorecard          (serving, 121 rows)
+        pidilite_demo.gold.agg_sales_by_territory_month  (serving, 288 rows)
+        pidilite_demo.gold.agg_dealer_scorecard          (serving, 501 rows)
         pidilite_demo.gold.access_map_customer     (entitlements, user_email → customer_code)
         pidilite_demo.gold.access_map_field_team   (entitlements, user_email → field_team_code)
         │  row filters keyed on current_user()
@@ -140,7 +140,7 @@ Recorded rather than hidden, because the client's reporting team will find them:
   reassignment, whose history is it?") is the client's business decision.
 - **No surrogate keys or SCD Type 2** on the dimensions; natural keys only.
 - **`access_map_customer` will not scale as-is.** Flattening to (user × dealer)
-  is free at 847 rows and would not be at the real organization's size. The
+  is free at 3,507 rows and would not be at the real organization's size. The
   territory-grain map is the one that scales; at volume the customer grain
   becomes a query-time join, a group membership check, or a tag-based policy.
 - **No PII classification or column masking**, no partitioning/clustering

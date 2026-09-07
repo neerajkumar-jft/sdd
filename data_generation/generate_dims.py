@@ -18,7 +18,22 @@ Faker.seed(42)
 
 # --- knobs -------------------------------------------------------------------
 
-TOTAL_CUSTOMERS = 120
+TOTAL_CUSTOMERS = 500
+
+# Dealers are NOT spread evenly across business lines, and getting this wrong
+# was the single biggest realism bug in the earlier seed. A consumer business
+# sells through a very large dealer network at low unit prices; an industrial
+# business sells to comparatively few large accounts. With even spreading,
+# Consumer & Bazaar came out with the FEWEST dealers and the smallest revenue -
+# backwards for the real organization, and something any sales head spots in
+# five seconds. Weighting dealer counts by division fixes the ranking at its
+# actual cause rather than inflating prices to compensate.
+DIVISION_DEALER_WEIGHT = {
+    10: 3.0,   # Consumer & Bazaar      - large dealer network
+    20: 1.0,   # Industrial Resins      - few large accounts
+    30: 1.2,   # Construction Chemicals
+    40: 1.2,   # Waterproofing Solutions
+}
 
 # Land the client's own column typo ("Tzxntyoe" for hierarchy_type) in the
 # field_team header so silver's RENAME_MAPS demonstrably does work instead of
@@ -154,7 +169,10 @@ BUSINESS_SUFFIXES = [
 # territory legitimately has 40x another's dealer count. The heavy Pareto skew
 # belongs on revenue instead (see the tier weights in generate_sales.py).
 _weighted = field_teams[:]
-_weights = [random.uniform(0.6, 1.8) for _ in _weighted]
+_weights = [
+    random.uniform(0.6, 1.8) * DIVISION_DEALER_WEIGHT.get(f[1], 1.0)
+    for f in _weighted
+]
 
 assignments = field_teams[:] + random.choices(
     _weighted, weights=_weights, k=TOTAL_CUSTOMERS - len(field_teams)

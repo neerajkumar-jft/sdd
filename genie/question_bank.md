@@ -3,44 +3,49 @@
 Questions to run live, with the **correct answer computed from the source CSVs**
 so a wrong Genie answer is caught in the room rather than believed.
 
-Every figure below is ground truth as of the current seed (anchor date
-**2026-08-31**). Regenerating the data changes them — recompute before a demo if
-the seed has moved.
+Every figure below is ground truth for the current seed (anchor date
+**2026-08-31**). Regenerating the data changes them all — recompute before a
+demo if the seed has moved.
+
+## Dataset shape
+
+| | Rows |
+|---|---|
+| Dealers | **501** |
+| Sales transactions | **26,611** |
+| Territories | **17** (12 Sales chain + 5 MDI chain) |
+| People | **30** |
+| Total revenue, 18 months | **₹70.63 Cr** |
+| Date range | 2025-03-01 → 2026-08-31 |
 
 ## The four personas
 
 All four are real workspace logins, mapped onto **one reporting chain** in
 `data_generation/generate_dims.py`, so scope nests cleanly.
 
-| Persona | Login | Role | Territories | Dealers | Transactions | Revenue |
-|---|---|---|---|---|---|---|
-| Abhinav Sarkar | `abhinav.sarkar@` | Territory/Area Sales Manager | 1 | **9** | 293 | **₹0.50 Cr** |
-| Akshay Siraswar | `akshay.siraswar@` | Regional/Zonal Sales Manager | 3 | **21** | 424 | **₹0.63 Cr** |
-| Shivam Pandey | `shivam.pandey@` | National Sales Manager | 12 | **95** | 3,061 | **₹13.71 Cr** |
-| Neeraj Kumar | `neeraj.kumar@` | Head Office | 17 | **121** | 3,662 | **₹15.89 Cr** |
+| Persona | Login | Role | Territories | Dealers | Transactions | Revenue | Dormant |
+|---|---|---|---|---|---|---|---|
+| Abhinav Sarkar | `abhinav.sarkar@` | Territory/Area Sales Manager | 1 | **70** | 6,402 | **₹10.52 Cr** | 11 |
+| Akshay Siraswar | `akshay.siraswar@` | Regional/Zonal Sales Manager | 3 | **175** | 13,656 | **₹21.88 Cr** | 34 |
+| Shivam Pandey | `shivam.pandey@` | National Sales Manager | 12 | **384** | 21,015 | **₹55.18 Cr** | 78 |
+| Neeraj Kumar | `neeraj.kumar@` | Head Office | 17 | **501** | 26,611 | **₹70.63 Cr** | 96 |
 
-Containment holds: **9 ⊂ 21 ⊂ 95 ⊂ 121**.
+Containment holds: **70 ⊂ 175 ⊂ 384 ⊂ 501**.
 
-**Who actually manages what** (the four real identities sit at different levels,
-so only one of them is a *territory* owner):
+**Who actually manages what** — of the four real logins, only Abhinav owns a
+*territory*. Akshay covers all three of division 10's Sales territories as
+Zonal Manager, so the other two keep their generated Territory Managers.
 
 | Territory | Territory Manager | Zonal | National |
 |---|---|---|---|
 | WSSTTY1 | **Abhinav Sarkar** | Akshay | Shivam |
-| WSSTTY2 | Viraj Tiwari *(synthetic)* | Akshay | Shivam |
-| WSSTTY3 | Rushil Saini *(synthetic)* | Akshay | Shivam |
+| WSSTTY2 | Viraj Tiwari *(generated)* | Akshay | Shivam |
+| WSSTTY3 | Rushil Saini *(generated)* | Akshay | Shivam |
 
-Only WSSTTY1 has a real login as its Territory Manager. WSSTTY2 and WSSTTY3
-keep their generated managers — Akshay covers all three as Zonal Manager.
-
-Territories each one covers:
-
-| Persona | Codes | Chains visible |
-|---|---|---|
-| Abhinav | WSSTTY1 | Sales only |
-| Akshay | WSSTTY1, 2, 3 | Sales only |
-| Shivam | WSSTTY1–12 | Sales only |
-| Neeraj | all 17 rows | **Sales *and* MDI** |
+| Persona | Chains visible |
+|---|---|
+| Abhinav, Akshay, Shivam | Sales only |
+| Neeraj | **Sales *and* MDI** |
 
 ---
 
@@ -48,63 +53,53 @@ Territories each one covers:
 
 ### 1. "Who manages territory WSSTTY3?"
 
-One question that proves row-level security **and** the dual-hierarchy modelling
-at the same time.
+One question that proves row-level security **and** the dual-hierarchy
+modelling at the same time.
 
 | Asked by | Expected answer |
 |---|---|
-| **Abhinav** | **Nothing visible** — he is on WSSTTY1. Genie should say there is no data visible to him, *not* that the territory doesn't exist |
-| **Akshay** | **1 row** — WSSTTY3 / Sales Hierarchy: Territory Manager **Rushil Saini**, under Akshay Siraswar, under Shivam Pandey. The MDI row for the same code is filtered out |
+| **Abhinav** | **Nothing visible** — he is on WSSTTY1. Genie should say there is no data visible to him, *not* that the territory does not exist |
+| **Akshay** | **1 row** — WSSTTY3 / Sales Hierarchy: **Rushil Saini** → Akshay Siraswar → Shivam Pandey (64 dealers). The MDI row for the same code is filtered out |
 | **Shivam** | **1 row** — the same Sales Hierarchy row |
-| **Neeraj** | **2 rows** — Sales Hierarchy (Rushil Saini → Akshay → Shivam) *and* MDI Hierarchy (**Nathaniel Sami → Saumya Mall → Udant Dewan**). Same code, two entirely separate management chains |
+| **Neeraj** | **2 rows** — Sales Hierarchy (Rushil Saini → Akshay → Shivam, 64 dealers) *and* MDI Hierarchy (**Nathaniel Sami → Saumya Mall → Udant Dewan**, 46 dealers) |
 
-That last cell is the payoff: the same territory code, two management chains,
-and only Head Office can see both.
+Same territory code, two entirely separate management chains and two separate
+dealer sets — and only Head Office can see both.
 
 ### 2. "Compare the Sales Hierarchy and the MDI Hierarchy by revenue"
 
 | Asked by | Expected answer |
 |---|---|
-| Abhinav | Sales Hierarchy only — ₹0.50 Cr, 9 dealers |
-| Akshay | Sales Hierarchy only — ₹0.63 Cr, 21 dealers |
-| Shivam | Sales Hierarchy only — ₹13.71 Cr, 95 dealers |
-| **Neeraj** | **Both** — Sales ₹13.71 Cr / 93 dealers, MDI ₹2.18 Cr / 26 dealers |
+| Abhinav | Sales Hierarchy only — ₹10.52 Cr, 70 dealers |
+| Akshay | Sales Hierarchy only — ₹21.88 Cr, 175 dealers |
+| Shivam | Sales Hierarchy only — ₹55.18 Cr, 384 dealers |
+| **Neeraj** | **Both** — Sales **₹55.18 Cr / 382 dealers**, MDI **₹15.45 Cr / 117 dealers** |
 
-The entire MDI business line is **invisible** to three of the four personas. Not
+A ₹15.45 Cr business line is **invisible** to three of the four personas. Not
 hidden by a dashboard filter — it does not exist in their query results.
 
 ---
 
-## ✅ Verified against the live space
+## Behaviour verified against the live space
 
-Asked through the deployed Genie space as **Akshay** and checked against the
-CSVs. Every figure matched exactly.
+Asked through the deployed space as **Akshay** on the *previous, smaller* seed.
+The numbers have since changed with the larger seed, but the **behaviour** is
+what was being checked, and all of it held:
 
-**"Who manages territory WSSTTY3?"**
+- **Date anchoring.** Genie volunteered *"The dataset's most recent data is
+  through August 31, 2026, so I'm reporting August 2026 as the latest complete
+  month."* Today is September — without that instruction, `current_date()`
+  would have returned an empty September.
+- **Composite territory key.** "Who manages WSSTTY3" returned the Sales
+  Hierarchy row only; the MDI row for the same code was filtered out.
+- **No self-filtering.** It added no `WHERE user_email = ...` of its own.
+- **Scope-aware wording.** It closed with *"these figures reflect your visible
+  scope"* rather than presenting the numbers as company totals.
+- **Right table for the question.** It chose `agg_dealer_scorecard` over the
+  fact table for a dealer-ranking question.
 
-> Territory Manager: Rushil Saini · Zonal Manager: Akshay Siraswar ·
-> National Manager: Shivam Pandey — Consumer & Bazaar, Sales Hierarchy
-
-Correct, and note what is *absent*: the MDI Hierarchy row for the same code
-was filtered out, because it is outside his scope. He cannot tell it exists.
-
-**"Sales for August 2026"** — Genie volunteered the anchoring itself:
-
-> *"The dataset's most recent data is through August 31, 2026, so I'm
-> reporting August 2026 as the latest complete month."*
-
-| Metric | Genie | Ground truth |
-|---|---|---|
-| Total Revenue | ₹2.34 L | **₹2.34 L** (233,730.06) |
-| Total Quantity | 691 units | **691** |
-| Transactions | 18 | **18** |
-| Active Dealers | 7 | **7** (of his 21-dealer scope) |
-
-Four instructions demonstrably firing at once: the **date anchor** (today is
-7 September, so `current_date()` would have returned an empty September), the
-**composite territory key**, **no self-filtering**, and closing with *"these
-figures reflect your visible scope"* rather than presenting them as company
-totals.
+Every figure it reported matched the CSVs exactly on that seed. Re-verify
+against the tables below now that the seed has grown.
 
 ---
 
@@ -114,66 +109,69 @@ totals.
 
 | # | Question | Expected |
 |---|---|---|
-| 1 | What is my total revenue and how many dealers do I cover? | **₹0.50 Cr**, **9 dealers**, 293 transactions |
-| 2 | Who are my top 5 dealers by revenue? | #115 Rau Enterprises **₹41.01 L**, #60 Walia Agencies ₹2.87 L, #116 Nori Paints & Hardware ₹2.25 L, #100 Solanki Paints & Hardware ₹0.81 L, #94 Khanna Enterprises ₹0.80 L |
-| 3 | How many dormant dealers do I have? | **0** |
-| 4 | Which product category sells the most for me? | **Sealants**, ₹0.27 Cr |
-| 5 | Break my revenue down by division | **Consumer & Bazaar only**, ₹0.50 Cr |
-| 6 | Which month was my best? | **April 2025**, ₹3.85 L |
+| 1 | What is my total revenue and how many dealers do I cover? | **₹10.52 Cr**, **70 dealers**, 6,402 transactions |
+| 2 | Who are my top 5 dealers by revenue? | #150 Mangal Traders ₹97.39 L, #448 Bala Traders ₹96.93 L, #99 Deo Enterprises ₹96.72 L, #231 Basu Building Materials ₹96.57 L, #21 Krishnamurthy Enterprises ₹95.67 L |
+| 3 | How many dormant dealers do I have? | **11** |
+| 4 | Which product category sells the most for me? | **Sealants**, ₹5.65 Cr |
+| 5 | Break my revenue down by division | **Consumer & Bazaar only**, ₹10.52 Cr |
+| 6 | Which month was my best? | **October 2025**, ₹0.73 Cr |
 | 7 | How many territories do I cover? | **1** — WSSTTY1 |
-| 8 | Who manages territory WSSTTY3? | Nothing visible to him |
-
-Note on Q2: one dealer carries **82%** of his territory. That is the Pareto
-model working as intended, but be ready for the question — it looks lopsided
-until you explain it.
+| 8 | What were sales in August 2026? | ₹49.66 L, 13,696 units, 311 transactions, 50 active dealers |
+| 9 | Who manages territory WSSTTY3? | Nothing visible to him |
 
 ### Akshay Siraswar — Regional/Zonal Sales Manager
 
 | # | Question | Expected |
 |---|---|---|
-| 1 | What is my total revenue and how many dealers do I cover? | **₹0.63 Cr**, **21 dealers**, 424 transactions |
-| 2 | Who are my top 5 dealers? | #115 Rau Enterprises ₹41.01 L, #108 Pandya Paints & Hardware ₹3.53 L, #27 Choudhury Enterprises ₹3.10 L, #60 Walia Agencies ₹2.87 L, #116 Nori Paints & Hardware ₹2.25 L |
-| 3 | How many dormant dealers do I have? | **3** |
-| 4 | How is each of my territories trending over the last 12 months? | 3 territories × months — WSSTTY1, WSSTTY2, WSSTTY3, all Sales Hierarchy |
-| 5 | Which product category sells the most for me? | **Sealants**, ₹0.35 Cr |
-| 6 | Which month was my best? | **November 2025**, ₹4.83 L |
-| 7 | Break my revenue down by division | **Consumer & Bazaar only**, ₹0.63 Cr |
-| 8 | Who manages territory WSSTTY3? | 1 row, Sales Hierarchy — **Rushil Saini** → Akshay → Shivam. ✅ *verified live* |
+| 1 | What is my total revenue and how many dealers do I cover? | **₹21.88 Cr**, **175 dealers**, 13,656 transactions |
+| 2 | Who are my top 5 dealers? | #77 Dara Hardware Store ₹101.37 L, #246 Sani Agencies ₹98.05 L, #150 Mangal Traders ₹97.39 L, #108 Pandya Building Materials ₹97.23 L, #448 Bala Traders ₹96.93 L |
+| 3 | How many dormant dealers do I have? | **34** |
+| 4 | How is each of my territories trending over the last 12 months? | 3 territories — WSSTTY1, WSSTTY2, WSSTTY3, all Sales Hierarchy |
+| 5 | Which product category sells the most for me? | **Sealants**, ₹11.73 Cr |
+| 6 | Which month was my best? | **October 2025**, ₹1.49 Cr |
+| 7 | Break my revenue down by division | **Consumer & Bazaar only**, ₹21.88 Cr |
+| 8 | What were sales in August 2026? | ₹97.56 L, 27,021 units, 640 transactions, 113 active dealers |
+| 9 | Who manages territory WSSTTY3? | 1 row, Sales Hierarchy — Rushil Saini → Akshay → Shivam |
 
-**Q1 against Abhinav's Q1 is the demo moment**: identical question, ₹0.50 Cr
-becomes ₹0.63 Cr, 9 dealers becomes 21 — and Abhinav's dealers are a strict
+**Q1 against Abhinav's Q1 is the demo moment**: identical question, ₹10.52 Cr
+becomes ₹21.88 Cr, 70 dealers becomes 175 — and Abhinav's dealers are a strict
 subset of Akshay's.
 
 ### Shivam Pandey — National Sales Manager
 
 | # | Question | Expected |
 |---|---|---|
-| 1 | What is my total revenue and how many dealers do I cover? | **₹13.71 Cr**, **95 dealers**, 3,061 transactions |
-| 2 | Who are my top 5 dealers? | #38 Misra Enterprises ₹129.47 L, #103 Ray Traders ₹119.91 L, #39 Tripathi Building Materials ₹116.77 L, #13 Dua Hardware Store ₹112.53 L, #3 Sangha Hardware Store ₹112.38 L |
-| 3 | Break my revenue down by division | Industrial Resins **₹5.62 Cr**, Construction Chemicals **₹3.85 Cr**, Waterproofing Solutions **₹3.62 Cr**, Consumer & Bazaar **₹0.63 Cr** |
-| 4 | How many dormant dealers do I have? | **23** |
-| 5 | Which product category sells the most? | **Construction Chemicals**, ₹5.25 Cr |
-| 6 | Which month was my best? | **April 2025**, ₹93.66 L |
-| 7 | How many territories do I cover, and which is largest? | **12**, all Sales Hierarchy |
-| 8 | Compare Sales and MDI Hierarchy | **Sales only** — MDI is not visible to him |
+| 1 | What is my total revenue and how many dealers do I cover? | **₹55.18 Cr**, **384 dealers**, 21,015 transactions |
+| 2 | Who are my top 5 dealers? | #394 Kota Building Materials ₹134.57 L, #293 Bala Paints & Hardware ₹133.30 L, #426 Rai Hardware Store ₹130.30 L, #262 Sachar Agencies ₹129.67 L, #109 Sampath Building Materials ₹128.87 L |
+| 3 | Break my revenue down by division | Consumer & Bazaar **₹21.88 Cr**, Waterproofing Solutions **₹13.30 Cr**, Construction Chemicals **₹10.96 Cr**, Industrial Resins **₹9.05 Cr** |
+| 4 | How many dormant dealers do I have? | **78** |
+| 5 | Which product category sells the most? | **Sealants**, ₹18.87 Cr |
+| 6 | Which month was my best? | **May 2026**, ₹3.65 Cr |
+| 7 | How many territories do I cover? | **12**, all Sales Hierarchy |
+| 8 | What were sales in August 2026? | ₹227.14 L, 39,125 units, 927 transactions, 210 active dealers |
+| 9 | Compare Sales and MDI Hierarchy | **Sales only** — MDI is not visible to him |
 
 ### Neeraj Kumar — Head Office
 
 | # | Question | Expected |
 |---|---|---|
-| 1 | What is total revenue and how many dealers are there? | **₹15.89 Cr**, **121 dealers**, 3,662 transactions |
-| 2 | Who are the top 5 dealers? | #38 Misra Enterprises ₹129.47 L, #10 Chand Traders ₹122.94 L, #103 Ray Traders ₹119.91 L, #39 Tripathi Building Materials ₹116.77 L, #13 Dua Hardware Store ₹112.53 L |
-| 3 | Break revenue down by division | Industrial Resins **₹7.03 Cr**, Construction Chemicals **₹4.24 Cr**, Waterproofing Solutions **₹3.94 Cr**, Consumer & Bazaar **₹0.68 Cr** |
-| 4 | Compare Sales and MDI Hierarchy | Sales **₹13.71 Cr / 93 dealers**, MDI **₹2.18 Cr / 26 dealers** |
-| 5 | How many dormant dealers are there? | **28** |
-| 6 | Which product category sells the most? | **Industrial Resins**, ₹5.97 Cr |
-| 7 | Which month was the best? | **May 2026**, ₹107.05 L |
-| 8 | Who manages territory WSSTTY3? | **2 rows** — Sales: Rushil Saini → Akshay → Shivam; MDI: Nathaniel Sami → Saumya Mall → Udant Dewan |
-| 9 | Which cities generate the most revenue? | ranked list across all 12 cities |
+| 1 | What is total revenue and how many dealers are there? | **₹70.63 Cr**, **501 dealers**, 26,611 transactions |
+| 2 | Who are the top 5 dealers? | Same five as Shivam's Q2 — the largest accounts all sit in the Sales chain |
+| 3 | Break revenue down by division | Consumer & Bazaar **₹27.69 Cr** (221 dealers), Waterproofing Solutions **₹16.84 Cr** (102), Industrial Resins **₹14.26 Cr** (94), Construction Chemicals **₹11.84 Cr** (84) |
+| 4 | Compare Sales and MDI Hierarchy | Sales **₹55.18 Cr / 382 dealers**, MDI **₹15.45 Cr / 117 dealers** |
+| 5 | How many dormant dealers are there? | **96** (2 of which have never bought at all) |
+| 6 | Which product category sells the most? | **Sealants**, ₹23.42 Cr |
+| 7 | Which month was the best? | **May 2026**, ₹4.65 Cr |
+| 8 | What were sales in August 2026? | ₹295.80 L, 50,177 units, 1,177 transactions, 273 active dealers |
+| 9 | Who manages territory WSSTTY3? | **2 rows** — Sales: Rushil Saini → Akshay → Shivam; MDI: Nathaniel Sami → Saumya Mall → Udant Dewan |
+| 10 | Which is our biggest division? | **Consumer & Bazaar**, ₹27.69 Cr — as it should be for this business |
 
-Notice Q2: **#10 Chand Traders appears for Neeraj but not for Shivam** — that
-dealer sits in the MDI chain, which Shivam cannot see. A clean, concrete way to
-show the boundary.
+Q3 is worth pausing on. Consumer & Bazaar is now the largest business line by
+both dealer count and revenue, which is what the real organization looks like.
+An earlier seed had it *smallest*, because dealers were spread evenly across
+divisions while consumer products are priced far lower — so the division came
+out looking a tenth of its real size. Dealer counts are now weighted by
+division, which is the actual reason a consumer network is larger.
 
 ---
 
@@ -185,28 +183,12 @@ live.
 
 | Risk | What goes wrong | Mitigation |
 |---|---|---|
-| **Relative dates** | Anchors on `current_date()` → returns nothing, because the data ends 2026-08-31 | Space instructions say to anchor on `max(transaction_date)`. **Verify** with "last quarter" and "last 3 months" |
+| **Relative dates** | Anchors on `current_date()` → returns nothing, because the data ends 2026-08-31 | Instructions say to anchor on `max(transaction_date)`. **Verified working** — but re-test "last quarter" and "last 3 months" |
 | **Fiscal year** | Treats "this year" as Jan–Dec instead of Apr–Mar | Instructions cover it. Test "how did we do this year" and check which window it used |
 | **Summing the two chains** | Adds Sales + MDI into a single total without labelling | Instructions forbid it. Test "what is total revenue by hierarchy" |
-| **Adding a user predicate** | Writes `WHERE user_email = ...` and double-filters to zero rows | Instructions forbid it explicitly. Test any "my ..." question |
+| **Adding a user predicate** | Writes `WHERE user_email = ...` and double-filters to zero rows | Instructions forbid it explicitly. **Verified working** |
 | **Territory code alone** | Joins on `field_team_code` without `hierarchy_type`, merging two territories | Test "who manages WSSTTY3" as Neeraj — a single row instead of two means it got this wrong |
 | **Invented metrics** | Answers a target/quota/margin question by substituting revenue | Instructions forbid it. Test "did I hit my target this quarter" — the right answer is "that data is not available" |
-
-### ⚠️ A data problem that will surface *through* Genie
-
-Ask "which is our biggest division" and the honest answer from this data is
-**Industrial Resins (₹7.03 Cr)**, with **Consumer & Bazaar smallest at
-₹0.68 Cr**.
-
-For the real company that is backwards — Consumer & Bazaar is their largest
-business. The generator prices consumer products low (Adhesives ₹350, Art &
-Craft ₹180) without giving them the volume to match, so the division looks tiny.
-
-Genie will state this confidently and the client's sales head will notice
-immediately. Either **fix the volumes in `generate_sales.py`** before the demo,
-or **avoid division-comparison questions** and say up front that relative
-division sizes are not modelled. The first option is roughly ten minutes of work
-and is the better one.
 
 ---
 
@@ -217,18 +199,27 @@ The space ships with 12 benchmark questions (question + expected SQL) in
 eyeballed:
 
 ```bash
-databricks genie genie-create-eval-run  --profile pidilite   # kick off a run
-databricks genie genie-list-eval-runs   --profile pidilite   # find the run
-databricks genie genie-list-eval-results --profile pidilite  # per-question results
+databricks genie genie-create-eval-run   --profile pidilite   # kick off a run
+databricks genie genie-list-eval-runs    --profile pidilite   # find the run
+databricks genie genie-list-eval-results --profile pidilite   # per-question results
 ```
 
-Ad-hoc single question:
+Ad-hoc single question against the space:
 
 ```bash
-databricks genie ask "Who are my top 5 dealers by revenue?" --profile pidilite
+databricks genie start-conversation 01f1aaa58a6c1e639422daac2f1a1dd9 \
+  "Who are my top 5 dealers by revenue?" --profile pidilite
 ```
 
-⚠️ The eval and `ask` run **as whoever the profile authenticates as**. The
-`pidilite` profile is Shadab, who is *not* in the access map — so he sees zero
-rows and every answer will look empty. To test a persona, use a profile
-authenticated as that persona, or ask from the Genie UI while signed in as them.
+⚠️ The eval and `start-conversation` run **as whoever the profile
+authenticates as**. The `pidilite` profile is Shadab, who is *not* in the
+access map — so he sees zero rows and every answer looks empty. To test a
+persona, sign in as them in the Genie UI:
+
+```
+https://dbc-b53b2bf8-6950.cloud.databricks.com/genie/rooms/01f1aaa58a6c1e639422daac2f1a1dd9?w=7474658069346952
+```
+
+Each persona also needs `CAN_USE` on the SQL warehouse, not just `CAN_RUN` on
+the space — without it the space opens but every message fails with
+*"not authorized to use or monitor this SQL Endpoint"*.
