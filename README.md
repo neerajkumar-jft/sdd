@@ -54,21 +54,20 @@ dropped or failing the whole pipeline run.
   `quantity`, `revenue`, `salesperson_id`), attributed to the Territory/Area
   Sales Manager of the customer's field team.
 
-Generation logic and volumes are in `pidilite_demo/data_generation/generate_dims.py`.
+Generation logic and volumes are in `data_generation/generate_dims.py`.
 
 ## Repo layout
 
 ```
-pidilite_demo/
-├── databricks.yml                          # bundle config (workspace, targets)
-├── resources/pidilite_demo.pipeline.yml    # pipeline resource definition
-├── src/pidilite_demo/
-│   ├── bronze.py                           # Auto Loader ingestion, one stream per entity
-│   └── silver.py                           # cleansing, canonicalization, quarantine framework
-├── data_generation/
-│   └── generate_dims.py                    # synthetic data generator, seeded from client sample
-└── sample_data/                            # generated source files, landed into the bronze volume
-    ├── division/  ├── person/  ├── field_team/  ├── customer/  └── sales_transaction/
+databricks.yml                          # bundle config (workspace, targets)
+resources/pidilite_demo.pipeline.yml    # pipeline resource definition
+src/pidilite_demo/
+├── bronze.py                           # Auto Loader ingestion, one stream per entity
+└── silver.py                           # cleansing, canonicalization, quarantine framework
+data_generation/
+└── generate_dims.py                    # synthetic data generator, seeded from client sample
+sample_data/                            # generated source files, landed into the bronze volume
+├── division/  ├── person/  ├── field_team/  ├── customer/  └── sales_transaction/
 ```
 
 ## Prerequisites
@@ -86,8 +85,6 @@ pidilite_demo/
 ## Deploy
 
 ```bash
-cd pidilite_demo
-
 # validate the bundle against a target workspace
 databricks bundle validate --profile <profile> -t dev
 
@@ -101,7 +98,7 @@ databricks bundle run pidilite_demo_pipeline --profile <profile> -t dev
 To regenerate the seed data (deterministic, same seed → same output):
 
 ```bash
-python3 pidilite_demo/data_generation/generate_dims.py
+python3 data_generation/generate_dims.py
 ```
 
 Then land the source files into the bronze volume before running the pipeline:
