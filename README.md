@@ -152,6 +152,9 @@ src/pidilite_demo/
 sql/
 ├── 01_row_filters.sql                  # filter functions, ALTER ... SET ROW FILTER, grants
 └── 02_verify_rls.sql                   # RLS verification checklist
+dashboards/
+├── x_industries_sales_overview.lvdash.json          # AI/BI dashboard definition
+└── x_industries_sales_overview.dashboard.yml.reference  # bundle config, deliberately NOT wired in
 genie/
 ├── pidilite_demo.geniespace.json       # Genie space definition (tables, instructions, benchmarks)
 └── question_bank.md                    # per-persona questions with ground-truth answers
@@ -163,6 +166,26 @@ data_generation/
 sample_data/                            # generated source files, landed into the bronze volume
 ├── division/  ├── person/  ├── field_team/  ├── customer/  └── sales_transaction/
 ```
+
+## AI/BI dashboard
+
+`dashboards/x_industries_sales_overview.lvdash.json` — KPI counters, revenue
+trend by month, revenue by territory and category, top 10 dealers, and the full
+dealer scorecard, all querying `pidilite_demo.gold.*` directly so the row
+filters apply live per viewer. One dashboard object for everyone; the scope
+narrows by itself.
+
+Two details that matter more than they look:
+
+- **Published without `embed_credentials`**, so each viewer's own identity runs
+  the queries rather than the publisher's. With credentials embedded, every
+  viewer would see the publisher's scope and row-level security would be
+  bypassed entirely.
+- **Its bundle config is kept as a `.reference` file outside `resources/`** on
+  purpose. `bundle deploy` wants to *recreate* the dashboard with a new id and
+  URL, which would invalidate the permissions already granted to the four
+  personas. Check whether that recreate warning still applies before wiring it
+  in, and re-grant afterwards if it does.
 
 ## Genie space
 
