@@ -125,17 +125,17 @@ UNION ALL SELECT 'gold.agg_dealer_scorecard', count(*) FROM pidilite_demo.gold.a
 ORDER BY tbl;
 
 -- Expected, from the current generated seed (tests/verify_access_map_logic.py):
---   dim_division                4
---   dim_person                 30      (32 generated, 2 quarantined)
---   dim_field_team             17      (18 generated, 1 quarantined)
---   dim_customer              121      (123 generated, 2 quarantined)
---   fact_sales_transaction   3662      (3666 generated, 4 quarantined)
---   access_map_field_team     119
---   access_map_customer       847
---   agg_sales_by_territory_month  287   (18 months x 16 of 17 territories that
---                                        have dealers - WSSTTY5/MDI has none)
---   agg_dealer_scorecard      121      (one row per dealer, 28 of them dormant,
---                                        2 of those having never bought at all)
+--   dim_division                  4
+--   dim_person                   30      (32 generated, 2 quarantined)
+--   dim_field_team               17      (18 generated, 1 quarantined)
+--   dim_customer                501      (503 generated, 2 quarantined)
+--   fact_sales_transaction   26,611      (26,615 generated, 4 quarantined)
+--   access_map_field_team       119
+--   access_map_customer       3,507
+--   agg_sales_by_territory_month  288      (18 months across the territories
+--                                           that have dealers)
+--   agg_dealer_scorecard        501      (one row per dealer, 96 of them
+--                                          dormant, 2 having never bought)
 -- A zero anywhere here is the failure this check exists to catch.
 --
 -- The aggregates anchor recency on the data, not the clock: as_of_date is the

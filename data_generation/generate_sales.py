@@ -63,6 +63,18 @@ SEASONALITY = {
     "Industrial Resins":      [1.00, 1.10, 1.20, 0.95, 1.00, 1.00, 0.95, 0.95, 1.00, 1.05, 1.05, 1.00],
 }
 
+# Orders per month, scaled by business line. Consumer & Bazaar is a
+# high-frequency, low-value business - a hardware shop reorders adhesive
+# constantly - while industrial accounts place fewer, larger orders. Combined
+# with DIVISION_DEALER_WEIGHT in generate_dims.py, this is what makes the
+# consumer division the largest by revenue, as it is in reality.
+DIVISION_ORDER_FACTOR = {
+    10: 2.5,   # Consumer & Bazaar      - frequent small reorders
+    20: 1.0,   # Industrial Resins      - infrequent large orders
+    30: 1.2,   # Construction Chemicals
+    40: 1.2,   # Waterproofing Solutions
+}
+
 # (share of dealers, orders/month multiplier) - drives the Pareto skew.
 TIERS = [("A", 0.10, 15.0), ("B", 0.25, 2.5), ("C", 0.65, 0.5)]
 BASE_ORDERS_PER_MONTH = 0.68
@@ -195,7 +207,13 @@ for c in customers:
         year, month = MONTHS[m_idx]
         for category in categories:
             season = SEASONALITY[category][month - 1]
-            expected = BASE_ORDERS_PER_MONTH * c["multiplier"] * season / len(categories)
+            expected = (
+                BASE_ORDERS_PER_MONTH
+                * c["multiplier"]
+                * DIVISION_ORDER_FACTOR[c["division_id"]]
+                * season
+                / len(categories)
+            )
             count = int(expected) + (1 if random.random() < (expected % 1) else 0)
 
             for _ in range(count):
