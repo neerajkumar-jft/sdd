@@ -21,6 +21,18 @@ All four are real workspace logins, mapped onto **one reporting chain** in
 
 Containment holds: **9 ⊂ 21 ⊂ 95 ⊂ 121**.
 
+**Who actually manages what** (the four real identities sit at different levels,
+so only one of them is a *territory* owner):
+
+| Territory | Territory Manager | Zonal | National |
+|---|---|---|---|
+| WSSTTY1 | **Abhinav Sarkar** | Akshay | Shivam |
+| WSSTTY2 | Viraj Tiwari *(synthetic)* | Akshay | Shivam |
+| WSSTTY3 | Rushil Saini *(synthetic)* | Akshay | Shivam |
+
+Only WSSTTY1 has a real login as its Territory Manager. WSSTTY2 and WSSTTY3
+keep their generated managers — Akshay covers all three as Zonal Manager.
+
 Territories each one covers:
 
 | Persona | Codes | Chains visible |
@@ -42,9 +54,9 @@ at the same time.
 | Asked by | Expected answer |
 |---|---|
 | **Abhinav** | **Nothing visible** — he is on WSSTTY1. Genie should say there is no data visible to him, *not* that the territory doesn't exist |
-| **Akshay** | **1 row** — WSSTTY3 / Sales Hierarchy, managed by Abhinav Sarkar, under Akshay Siraswar, under Shivam Pandey |
+| **Akshay** | **1 row** — WSSTTY3 / Sales Hierarchy: Territory Manager **Rushil Saini**, under Akshay Siraswar, under Shivam Pandey. The MDI row for the same code is filtered out |
 | **Shivam** | **1 row** — the same Sales Hierarchy row |
-| **Neeraj** | **2 rows** — WSSTTY3 appears under *both* Sales Hierarchy and MDI Hierarchy, with completely different managers |
+| **Neeraj** | **2 rows** — Sales Hierarchy (Rushil Saini → Akshay → Shivam) *and* MDI Hierarchy (**Nathaniel Sami → Saumya Mall → Udant Dewan**). Same code, two entirely separate management chains |
 
 That last cell is the payoff: the same territory code, two management chains,
 and only Head Office can see both.
@@ -60,6 +72,39 @@ and only Head Office can see both.
 
 The entire MDI business line is **invisible** to three of the four personas. Not
 hidden by a dashboard filter — it does not exist in their query results.
+
+---
+
+## ✅ Verified against the live space
+
+Asked through the deployed Genie space as **Akshay** and checked against the
+CSVs. Every figure matched exactly.
+
+**"Who manages territory WSSTTY3?"**
+
+> Territory Manager: Rushil Saini · Zonal Manager: Akshay Siraswar ·
+> National Manager: Shivam Pandey — Consumer & Bazaar, Sales Hierarchy
+
+Correct, and note what is *absent*: the MDI Hierarchy row for the same code
+was filtered out, because it is outside his scope. He cannot tell it exists.
+
+**"Sales for August 2026"** — Genie volunteered the anchoring itself:
+
+> *"The dataset's most recent data is through August 31, 2026, so I'm
+> reporting August 2026 as the latest complete month."*
+
+| Metric | Genie | Ground truth |
+|---|---|---|
+| Total Revenue | ₹2.34 L | **₹2.34 L** (233,730.06) |
+| Total Quantity | 691 units | **691** |
+| Transactions | 18 | **18** |
+| Active Dealers | 7 | **7** (of his 21-dealer scope) |
+
+Four instructions demonstrably firing at once: the **date anchor** (today is
+7 September, so `current_date()` would have returned an empty September), the
+**composite territory key**, **no self-filtering**, and closing with *"these
+figures reflect your visible scope"* rather than presenting them as company
+totals.
 
 ---
 
@@ -93,7 +138,7 @@ until you explain it.
 | 5 | Which product category sells the most for me? | **Sealants**, ₹0.35 Cr |
 | 6 | Which month was my best? | **November 2025**, ₹4.83 L |
 | 7 | Break my revenue down by division | **Consumer & Bazaar only**, ₹0.63 Cr |
-| 8 | Who manages territory WSSTTY3? | 1 row, Sales Hierarchy — Abhinav → Akshay → Shivam |
+| 8 | Who manages territory WSSTTY3? | 1 row, Sales Hierarchy — **Rushil Saini** → Akshay → Shivam. ✅ *verified live* |
 
 **Q1 against Abhinav's Q1 is the demo moment**: identical question, ₹0.50 Cr
 becomes ₹0.63 Cr, 9 dealers becomes 21 — and Abhinav's dealers are a strict
@@ -123,7 +168,7 @@ subset of Akshay's.
 | 5 | How many dormant dealers are there? | **28** |
 | 6 | Which product category sells the most? | **Industrial Resins**, ₹5.97 Cr |
 | 7 | Which month was the best? | **May 2026**, ₹107.05 L |
-| 8 | Who manages territory WSSTTY3? | **2 rows** — one per hierarchy, different managers |
+| 8 | Who manages territory WSSTTY3? | **2 rows** — Sales: Rushil Saini → Akshay → Shivam; MDI: Nathaniel Sami → Saumya Mall → Udant Dewan |
 | 9 | Which cities generate the most revenue? | ranked list across all 12 cities |
 
 Notice Q2: **#10 Chand Traders appears for Neeraj but not for Shivam** — that
