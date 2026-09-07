@@ -19,10 +19,12 @@ Reached two ways:
   - opened directly, with no query params - falls back to a manual form
 """
 import os
+import time
 
 import psycopg2
 import streamlit as st
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.sql import StatementState
 
 INSTANCE_NAME = "pidilite-comments"
 WAREHOUSE_ID = "be5dd2cb70eb66ee"
@@ -49,18 +51,40 @@ def viewer_email() -> str:
 
 
 def run_sql(statement: str, parameters: list | None = None) -> list:
+    """Execute a SQL statement and return its rows, polling until the
+    statement actually reaches a terminal state.
+
+    A cold SQL warehouse can take well over wait_timeout's max (50s) to spin
+    up. execute_statement returning before the query finishes (state still
+    PENDING/RUNNING) looks identical to "zero rows" if you only check
+    resp.result - which silently turned a slow warehouse into a false
+    "you don't have access" rejection. Hit this for real: a customer
+    confirmed valid via this exact query moments earlier still got denied
+    on a cold click.
+    """
     resp = w.statement_execution.execute_statement(
         warehouse_id=WAREHOUSE_ID,
         statement=statement,
-        wait_timeout="30s",
+        wait_timeout="50s",
         parameters=parameters or [],
     )
+    deadline = time.monotonic() + 120
+    while resp.status.state in (StatementState.PENDING, StatementState.RUNNING):
+        if time.monotonic() > deadline:
+            raise TimeoutError("SQL warehouse did not respond in time - it may be cold-starting.")
+        time.sleep(2)
+        resp = w.statement_execution.get_statement(resp.statement_id)
+    if resp.status.state != StatementState.SUCCEEDED:
+        raise RuntimeError(f"Query failed: {resp.status.error}")
     if not resp.result or not resp.result.data_array:
         return []
     return resp.result.data_array
 
 
-def is_authorized(email: str, scope_type: str, scope_id: str, hierarchy_type: str | None) -> bool:
+def is_authorized(email: str, scope_type: str, scope_id: str, hierarchy_type: str | None) -> bool | None:
+    """True/False = a definitive answer. None = couldn't get one (warehouse
+    timeout, transient error) - the caller must NOT treat that as "denied",
+    since that reads as a security decision when it's actually "try again"."""
     if scope_type == "customer":
         stmt = (
             "SELECT 1 FROM pidilite_demo.gold.access_map_customer "
@@ -84,7 +108,7 @@ def is_authorized(email: str, scope_type: str, scope_id: str, hierarchy_type: st
     try:
         return len(run_sql(stmt, params)) > 0
     except Exception:
-        return False
+        return None
 
 
 @st.cache_resource(ttl=1800)
@@ -142,9 +166,14 @@ else:
 comment_text = st.text_area("Comment")
 
 if st.button("Add comment", type="primary"):
+    authorized = None
+    if scope_id and comment_text:
+        authorized = is_authorized(email, scope_type, scope_id, hierarchy_type)
     if not scope_id or not comment_text:
         st.error("Fill in both the record and the comment.")
-    elif not is_authorized(email, scope_type, scope_id, hierarchy_type):
+    elif authorized is None:
+        st.warning("Couldn't verify your access right now (the SQL warehouse may be starting up) — please try again in a few seconds.")
+    elif authorized is False:
         st.error(f"You don't have access to comment on this {scope_type.replace('_', ' ')}.")
     else:
         conn = get_pg_connection()
