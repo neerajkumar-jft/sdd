@@ -61,7 +61,15 @@
               "encodings": {
                 "value": {
                   "displayName": "Total Revenue (Rs)",
-                  "fieldName": "sum(revenue_total)"
+                  "fieldName": "sum(revenue_total)",
+                  "format": {
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "places": 2,
+                      "type": "max"
+                    },
+                    "type": "number"
+                  }
                 }
               },
               "frame": {
@@ -102,7 +110,15 @@
               "encodings": {
                 "value": {
                   "displayName": "Total Transactions",
-                  "fieldName": "sum(transactions)"
+                  "fieldName": "sum(transactions)",
+                  "format": {
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "places": 2,
+                      "type": "max"
+                    },
+                    "type": "number"
+                  }
                 }
               },
               "frame": {
@@ -143,7 +159,15 @@
               "encodings": {
                 "value": {
                   "displayName": "Active Dealers",
-                  "fieldName": "active_dealers"
+                  "fieldName": "active_dealers",
+                  "format": {
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "places": 2,
+                      "type": "max"
+                    },
+                    "type": "number"
+                  }
                 }
               },
               "frame": {
@@ -184,7 +208,15 @@
               "encodings": {
                 "value": {
                   "displayName": "Dormant Dealers",
-                  "fieldName": "dormant_dealers"
+                  "fieldName": "dormant_dealers",
+                  "format": {
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "places": 2,
+                      "type": "max"
+                    },
+                    "type": "number"
+                  }
                 }
               },
               "frame": {
@@ -238,7 +270,15 @@
                   "fields": [
                     {
                       "displayName": "Revenue Trend by Month",
-                      "fieldName": "sum(revenue)"
+                      "fieldName": "sum(revenue)",
+                      "format": {
+                        "abbreviation": "compact",
+                        "decimalPlaces": {
+                          "places": 2,
+                          "type": "max"
+                        },
+                        "type": "number"
+                      }
                     }
                   ],
                   "scale": {
@@ -296,6 +336,14 @@
                 "y": {
                   "displayName": "sum(revenue)",
                   "fieldName": "sum(revenue)",
+                  "format": {
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "places": 2,
+                      "type": "max"
+                    },
+                    "type": "number"
+                  },
                   "scale": {
                     "type": "quantitative"
                   }
@@ -351,6 +399,14 @@
                 "y": {
                   "displayName": "sum(revenue)",
                   "fieldName": "sum(revenue)",
+                  "format": {
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "places": 2,
+                      "type": "max"
+                    },
+                    "type": "number"
+                  },
                   "scale": {
                     "type": "quantitative"
                   }
@@ -406,6 +462,14 @@
                 "y": {
                   "displayName": "revenue_total",
                   "fieldName": "revenue_total",
+                  "format": {
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "places": 2,
+                      "type": "max"
+                    },
+                    "type": "number"
+                  },
                   "scale": {
                     "type": "quantitative"
                   }
@@ -534,6 +598,7 @@
                     "displayAs": "number",
                     "displayName": "Lifetime Revenue",
                     "fieldName": "revenue_total",
+                    "numberFormat": "#,##0.00",
                     "title": "Lifetime Revenue",
                     "type": "decimal",
                     "visible": true
@@ -549,6 +614,7 @@
                     "displayAs": "number",
                     "displayName": "Recent Revenue (90d)",
                     "fieldName": "revenue_recent",
+                    "numberFormat": "#,##0.00",
                     "title": "Recent Revenue (90d)",
                     "type": "decimal",
                     "visible": true
