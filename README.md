@@ -86,14 +86,21 @@ Six real workspace logins, mapped onto roster rows in
 
 - **Vertical** — Abhinav (Territory) → Akshay (Zonal) → Shivam (National) →
   Neeraj (Head Office). Proves *containment*: 70 ⊂ 175 ⊂ 384 ⊂ 501 dealers.
-- **Lateral** — two more Territory Managers, `+tm2` on WSSTTY2 and `+tm3` on
-  WSSTTY3's **MDI** chain. Proves *isolation*: peers of the same rank see
-  completely disjoint dealers. Containment alone invites "of course the boss
-  sees more"; lateral answers whether one territory manager can see another's
-  numbers, which is what a client actually asks. And the three territories
-  under Akshay sum exactly to his own totals — 70 + 41 + 64 = 175 dealers,
-  ₹10.52 + 4.73 + 6.63 = ₹21.88 Cr — so the roll-up is arithmetic rather than
-  assertion.
+- **Lateral** — three more logins, proving *isolation*: peers of the same rank
+  see completely disjoint dealers. Containment alone invites "of course the boss
+  sees more"; lateral answers what a client actually asks.
+  - `+tm2` on WSSTTY2 and `+tm3` on WSSTTY3's **MDI** chain — *"can one
+    territory manager see another's dealers?"* (70 vs 41, overlap 0; and the
+    MDI one shares a territory code with a Sales-chain team it cannot see).
+  - `+zm2` — a second Zonal Manager in a **different division** — *"can the
+    head of one business line see another business line at all?"*, which is
+    the more senior question. Their product mixes differ too, so the two
+    dashboards look unlike each other rather than merely carrying different
+    totals.
+
+  The roll-up is exact at **both** levels, so the hierarchy is verifiable
+  arithmetic rather than assertion: 70 + 41 + 64 = 175 dealers under Akshay,
+  and 175 + 80 + 58 + 71 = 384 under Shivam.
 
 The peer logins are plus-addressed, so invitations land in an existing inbox
 and no new mailbox is needed. Only their email is overridden; the generated

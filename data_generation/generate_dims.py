@@ -181,6 +181,17 @@ PERSONA_OVERRIDES = {
         None, "akshay.siraswar+tm2@jellyfishtechnologies.com"),   # peer under the same Zonal Manager
     _master_of("WSSTTY3", "MDI Hierarchy"): (
         None, "akshay.siraswar+tm3@jellyfishtechnologies.com"),   # same territory code, other chain
+
+    # A second Zonal Manager, deliberately in a DIFFERENT division. Territory
+    # peers answer "can one territory manager see another's dealers"; this
+    # answers a different and more senior question - "can the head of one
+    # business line see another business line at all". Division 20 also sells a
+    # different product mix, so the two Zonal dashboards look visibly unlike
+    # each other rather than merely carrying different totals. It also makes the
+    # second roll-up level demonstrable: the four Sales-chain Zonal Managers sum
+    # exactly to the National Manager's own dashboard.
+    _ra1_of("WSSTTY4", "Sales Hierarchy"): (
+        None, "akshay.siraswar+zm2@jellyfishtechnologies.com"),
 }
 for _row in persons:
     if _row[0] in PERSONA_OVERRIDES:
