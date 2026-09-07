@@ -2,4 +2,4 @@ streamlit
 pandas
 plotly
 databricks-sql-connector
-databricks-sdk
+databricks-sdk==0.136.0
