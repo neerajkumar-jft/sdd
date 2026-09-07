@@ -18,18 +18,21 @@ demo if the seed has moved.
 | Total revenue, 18 months | **₹70.63 Cr** |
 | Date range | 2025-03-01 → 2026-08-31 |
 
-## The six personas
+## The seven personas
 
 Two sets, because the demo has two different things to prove.
 
 **Vertical — one reporting chain.** Proves *containment*: each level sees more.
 
-**Lateral — peers at territory level.** Proves *isolation*: two managers of the
-same rank see completely disjoint data. Containment on its own invites "well of
-course the boss sees more"; lateral answers the question a client actually
-asks, which is whether one territory manager can see another's numbers. The
-pyramid only widens downward, so peer identities only exist at territory level —
-there is exactly one Head Office and one National Manager by definition.
+**Lateral — peers at territory *and* zonal level.** Proves *isolation*: two
+managers of the same rank see completely disjoint data. Containment on its own
+invites "well of course the boss sees more"; lateral answers the questions a
+client actually asks — whether one territory manager can see another's numbers,
+and whether the head of one business line can see another business line at all.
+
+The pyramid only widens downward, so peer identities stop being meaningful
+above zonal level: there is exactly one Head Office and one National Sales
+Manager by definition.
 
 | Persona | Login | Role | Territories | Dealers | Transactions | Revenue | Dormant |
 |---|---|---|---|---|---|---|---|
@@ -53,6 +56,32 @@ inbox and no new mailbox was needed. Only their **email** is overridden — the
 generated names stay, so the roster still reads like a real sales organization
 rather than the same handful of colleagues wearing every hat.
 
+### The zonal peer
+
+| Persona | Login | Division | Territories | Dealers | Transactions | Revenue | Dormant |
+|---|---|---|---|---|---|---|---|
+| Akshay Siraswar | `akshay.siraswar@` | 10 — Consumer & Bazaar | 3 | **175** | 13,656 | **₹21.88 Cr** | 34 |
+| Arunima Dugal | `akshay.siraswar+zm2@` | 20 — Industrial Resins | 3 | **80** | 1,934 | **₹9.05 Cr** | 22 |
+
+Deliberately a **different division**, which makes this a different argument
+from the territory peers. Those answer *"can one territory manager see
+another's dealers?"* This answers *"can the head of one business line see
+another business line at all?"* — the question a senior stakeholder asks.
+
+Overlap between them: **0 dealers.** And their product mixes differ, so the two
+dashboards look visibly unlike each other rather than merely carrying different
+totals:
+
+| | Akshay (Consumer & Bazaar) | Arunima (Industrial Resins) |
+|---|---|---|
+| Top category | **Sealants** ₹11.73 Cr | **Industrial Resins** ₹7.74 Cr |
+| Also sells | Adhesives, Art & Craft | Adhesives ₹1.32 Cr — and nothing else |
+| Transactions | 13,656 | 1,934 |
+| Revenue per transaction | ~₹16 K | ~₹47 K |
+
+That last row is the business model showing through rather than anything that
+was tuned for: consumer is many small orders, industrial is few large ones.
+
 **Who actually manages what** — of the four real logins, only Abhinav owns a
 *territory*. Akshay covers all three of division 10's Sales territories as
 Zonal Manager, so the other two keep their generated Territory Managers.
@@ -65,7 +94,7 @@ Zonal Manager, so the other two keep their generated Territory Managers.
 
 | Persona | Chains visible |
 |---|---|
-| Abhinav, Viraj, Akshay, Shivam | Sales only |
+| Abhinav, Viraj, Akshay, Arunima, Shivam | Sales only |
 | Nathaniel (`+tm3`) | **MDI only** |
 | Neeraj | **Sales *and* MDI** |
 
@@ -123,7 +152,28 @@ Akshay's own dashboard     175 dealers    ₹21.88 Cr     ← exact
 roll-up is arithmetic, not assertion — and it is more convincing than any
 single screen.
 
-### 3. Same territory code, two managers, zero overlap
+### 3. The roll-up adds up at *both* levels
+
+The territory sum above proves the first level. The zonal sum proves the second
+— Shivam's four Sales-chain Zonal Managers:
+
+```
+Akshay Siraswar    Consumer & Bazaar        175 dealers    ₹21.88 Cr
+Arunima Dugal      Industrial Resins         80 dealers    ₹ 9.05 Cr
+Janaki Handa       Construction Chemicals    58 dealers    ₹10.96 Cr
+Ekbal Garg         Waterproofing Solutions   71 dealers    ₹13.30 Cr
+                                          ─────────────────────────
+                                 total    384 dealers    ₹55.18 Cr
+
+Shivam's own dashboard                     384 dealers    ₹55.18 Cr    ← exact
+```
+
+**175 + 80 + 58 + 71 = 384.** Two independent roll-up levels, both exact, so
+the hierarchy is verifiable arithmetic from the bottom of the pyramid to the
+top. Only Akshay and Arunima have real logins here; the other two figures come
+from the access map, which is the same source the row filter itself reads.
+
+### 4. Same territory code, two managers, zero overlap
 
 `WSSTTY3` exists under both chains. Ask **"who manages WSSTTY3"** as two
 different people:
@@ -141,7 +191,7 @@ it is the same territory code. And it is exactly the bug that was found and
 fixed: on an earlier build, 64 of 120 dealers resolved to **both** chains,
 which would have handed every one of them to two different managers.
 
-### 4. "Compare the Sales Hierarchy and the MDI Hierarchy by revenue"
+### 5. "Compare the Sales Hierarchy and the MDI Hierarchy by revenue"
 
 | Asked by | Expected answer |
 |---|---|
@@ -243,6 +293,25 @@ it does not exist.
 
 Q7 and Q8 are the dual-hierarchy proof from the other side: he sits on the same
 territory code as Rushil Saini and can see neither him nor his 64 dealers.
+
+### Arunima Dugal — Zonal Manager, division 20 (peer, `+zm2`)
+
+| # | Question | Expected |
+|---|---|---|
+| 1 | What is my total revenue and how many dealers do I cover? | **₹9.05 Cr**, **80 dealers**, 1,934 transactions |
+| 2 | Who are my top 5 dealers? | #394 Kota Building Materials ₹134.57 L, #262 Sachar Agencies ₹129.67 L, #272 Barad Building Materials ₹121.99 L, #171 Bir Traders ₹118.39 L, #386 Savant Enterprises ₹114.63 L |
+| 3 | How many dormant dealers do I have? | **22** |
+| 4 | Break my revenue down by product category | **Industrial Resins ₹7.74 Cr**, Adhesives ₹1.32 Cr — and nothing else, because that is all division 20 sells |
+| 5 | Break my revenue down by division | **Industrial Resins only**, ₹9.05 Cr |
+| 6 | Which month was my best? | **March 2025**, ₹0.64 Cr |
+| 7 | How many territories do I cover? | **3** — WSSTTY4, WSSTTY5, WSSTTY6 |
+| 8 | What were sales in August 2026? | ₹43.71 L, 3,611 units, 90 transactions, 33 active dealers |
+| 9 | Show me dealer #150 | **Nothing visible** — that dealer is in Akshay's division |
+
+Q4 is the one to run beside Akshay's equivalent. Same question, same dashboard,
+and the categories that come back have nothing in common — Sealants and Art &
+Craft for one, Industrial Resins for the other. Business-line separation shows
+up in the *shape* of the answer, not only in the totals.
 
 ### Shivam Pandey — National Sales Manager
 
