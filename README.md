@@ -173,6 +173,10 @@ app/
 ├── app.py                               # comment form + auth check + recent comments (Streamlit)
 ├── app.yaml                             # Databricks App run command
 └── requirements.txt
+dashboard_app/
+├── app.py                               # scoped dashboard, OBO auth, per-row comment links (Streamlit)
+├── app.yaml
+└── requirements.txt
 tests/
 └── verify_access_map_logic.py          # offline entitlement-algebra test (no workspace needed)
 data_generation/
@@ -210,22 +214,28 @@ A `pidilite-comments` Lakebase (OLTP Postgres) instance holds one table,
 High-frequency, low-latency interactive writes are a poor fit for a batch
 Delta table, which is the whole reason this piece exists in Postgres at all.
 
-**Read side:** a UC catalog (`pidilite_comments`) is registered directly on
-top of the instance (`databricks database create-database-catalog ...`).
-This is a **live federation**, not a periodic sync — verified end to end: a
-row written via a direct Postgres connection is queryable through
+A UC catalog (`pidilite_comments`) is registered directly on top of the
+instance (`databricks database create-database-catalog ...`). This is a
+**live federation**, not a periodic sync — verified end to end: a row
+written via a direct Postgres connection is queryable through
 `pidilite_comments.public.comments` immediately. No scheduled sync job is
-needed, which is simpler than the build guide's original assumption of
-"sync on a short interval." The dashboard's "Recent Comments" table widget
-and Genie both read through this same UC path — that route is **read-only**;
-Unity Catalog rejects writes against a federated foreign table.
+needed, simpler than the build guide's original "sync on a short interval"
+assumption. That federation is **read-only** — Unity Catalog rejects writes
+against it, confirmed directly (`PERMISSION_DENIED`) — so adding a comment
+always goes through a direct Postgres connection, never the SQL warehouse.
 
-**Write side:** since AI/BI dashboards have no native form/write-back widget
-type (only display widgets — counter, table, bar, line, etc.), writing a
-comment goes through a small companion **Databricks App**
-(`app/app.py`, a single-page Streamlit form) rather than anything embedded
-inside the dashboard canvas itself. The dashboard carries a text-widget link
-to it. The app:
+The Lakeview AI/BI dashboard (`dashboards/x_industries_sales_overview.lvdash.json`)
+stays **purely read-only analytics** — no comment integration in it. Lakeview
+has no native write-back widget type, and its table-column link templating
+(`linkUrlTemplate`) proved unreliable in practice (a second table using the
+same pattern rendered as "Visualization has no fields selected"), so
+comments live entirely in their own surface instead of half-working inside
+this one.
+
+### The comment app (`app/`)
+
+A single-page Databricks App (Streamlit) that's the only way a comment gets
+written:
 
 - reads the viewer's real identity from the `X-Forwarded-Email` header
   Databricks Apps forwards automatically,
@@ -233,14 +243,35 @@ to it. The app:
   write — checks `pidilite_demo.gold.access_map_customer` /
   `access_map_field_team` for that user via the app's own service principal
   (granted narrow `SELECT` on just those two tables — never exposed to end
-  users, same reasoning as the row-filter grants never handing out direct
-  map access), verified for both an authorized and a rejected case,
+  users), verified for both an authorized and a rejected case,
 - then writes to Postgres using a Lakebase OAuth database credential
   (`generate_database_credential`, refreshed periodically) rather than a
-  static password.
+  static password,
+- accepts `?scope_type=&scope_id=&hierarchy_type=&customer_name=` query
+  params — arriving via a link, the record is pre-filled and there's nothing
+  to type; opened directly, it falls back to a manual entry form.
 
-Grants for both the app's service principal and each persona's read access
-to the comments table are in `lakebase/02_grants.sql`.
+### The scoped dashboard (`dashboard_app/`)
+
+A second, custom Databricks App (Streamlit) — same KPIs/charts/tables as the
+Lakeview dashboard, but with full control over the HTML, so every dealer and
+every territory row carries a real, reliable **💬 Comment** link (opens the
+comment app in a new tab, pre-filled) instead of depending on Lakeview's
+templating.
+
+The one thing that makes it "the same architecture, not a second one": it
+runs every query as **the viewing user's own identity**, not the app's
+service principal. Databricks Apps' on-behalf-of-user authorization
+(`user_api_scopes: ["sql"]` at app creation, the viewer's token forwarded via
+the `X-Forwarded-Access-Token` header, used directly with the
+`databricks-sql-connector`) means the existing `can_see_customer` /
+`can_see_field_team` row filters apply automatically — no second scoping
+mechanism to write or drift out of sync with the real one. Abhinav opening
+this app sees his 9 dealers; Neeraj sees all 121 — same rule, same filters,
+just a different rendering surface than the Lakeview dashboard.
+
+Grants for the comment app's service principal and each persona's access to
+both apps and the comments table are in `lakebase/02_grants.sql`.
 
 ## Genie space
 
