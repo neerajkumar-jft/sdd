@@ -79,6 +79,42 @@ One correctness detail worth knowing: `gold.py`'s tables are Lakeflow
 Catalog rejects with `EXPECT_TABLE_NOT_VIEW`). Both filter-attachment and
 full-refresh survival have been verified against this workspace.
 
+### Demo personas
+
+Six real workspace logins, mapped onto roster rows in
+`data_generation/generate_dims.py`. Two sets, proving two different things:
+
+- **Vertical** — Abhinav (Territory) → Akshay (Zonal) → Shivam (National) →
+  Neeraj (Head Office). Proves *containment*: 70 ⊂ 175 ⊂ 384 ⊂ 501 dealers.
+- **Lateral** — two more Territory Managers, `+tm2` on WSSTTY2 and `+tm3` on
+  WSSTTY3's **MDI** chain. Proves *isolation*: peers of the same rank see
+  completely disjoint dealers. Containment alone invites "of course the boss
+  sees more"; lateral answers whether one territory manager can see another's
+  numbers, which is what a client actually asks. And the three territories
+  under Akshay sum exactly to his own totals — 70 + 41 + 64 = 175 dealers,
+  ₹10.52 + 4.73 + 6.63 = ₹21.88 Cr — so the roll-up is arithmetic rather than
+  assertion.
+
+The peer logins are plus-addressed, so invitations land in an existing inbox
+and no new mailbox is needed. Only their email is overridden; the generated
+names stay, so the roster reads like a sales organization rather than the same
+few colleagues wearing every hat.
+
+A persona needs privileges on **five separate surfaces** — SQL warehouse,
+catalog and schema, the gold tables, the filter functions, and the Genie space
+and dashboard — and missing any one fails in a way that does not point at the
+cause. The warehouse grant was missed once and the symptom was *"not authorized
+to use or monitor this SQL Endpoint"* from inside Genie, which reads like a
+Genie fault. So it is one idempotent command:
+
+```bash
+./sql/03_grant_persona.sh <email> [profile]
+```
+
+`gold.access_map_*` is deliberately absent from what it grants: a user needs
+`EXECUTE` on the row-filter function, never read access to the entitlement
+tables.
+
 `tests/verify_access_map_logic.py` proves the entitlement algebra offline, in
 plain Python against the generated CSVs (containment, no cross-hierarchy
 leak, coverage, no-identity-no-access) — useful for iterating on the
@@ -159,7 +195,8 @@ src/pidilite_demo/
 └── gold.py                             # conformed model + derived access maps
 sql/
 ├── 01_row_filters.sql                  # filter functions, ALTER ... SET ROW FILTER, grants
-└── 02_verify_rls.sql                   # RLS verification checklist
+├── 02_verify_rls.sql                   # RLS verification checklist
+└── 03_grant_persona.sh                 # all 14 grants for one persona, idempotent
 dashboards/
 ├── x_industries_sales_overview.lvdash.json          # AI/BI dashboard definition
 └── x_industries_sales_overview.dashboard.yml.reference  # bundle config, deliberately NOT wired in

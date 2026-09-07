@@ -18,10 +18,18 @@ demo if the seed has moved.
 | Total revenue, 18 months | **₹70.63 Cr** |
 | Date range | 2025-03-01 → 2026-08-31 |
 
-## The four personas
+## The six personas
 
-All four are real workspace logins, mapped onto **one reporting chain** in
-`data_generation/generate_dims.py`, so scope nests cleanly.
+Two sets, because the demo has two different things to prove.
+
+**Vertical — one reporting chain.** Proves *containment*: each level sees more.
+
+**Lateral — peers at territory level.** Proves *isolation*: two managers of the
+same rank see completely disjoint data. Containment on its own invites "well of
+course the boss sees more"; lateral answers the question a client actually
+asks, which is whether one territory manager can see another's numbers. The
+pyramid only widens downward, so peer identities only exist at territory level —
+there is exactly one Head Office and one National Manager by definition.
 
 | Persona | Login | Role | Territories | Dealers | Transactions | Revenue | Dormant |
 |---|---|---|---|---|---|---|---|
@@ -31,6 +39,19 @@ All four are real workspace logins, mapped onto **one reporting chain** in
 | Neeraj Kumar | `neeraj.kumar@` | Head Office | 17 | **501** | 26,611 | **₹70.63 Cr** | 96 |
 
 Containment holds: **70 ⊂ 175 ⊂ 384 ⊂ 501**.
+
+### The lateral peers
+
+| Persona | Login | Territory | Dealers | Transactions | Revenue | Dormant |
+|---|---|---|---|---|---|---|
+| Abhinav Sarkar | `abhinav.sarkar@` | WSSTTY1 / Sales | **70** | 6,402 | **₹10.52 Cr** | 11 |
+| Viraj Tiwari | `akshay.siraswar+tm2@` | WSSTTY2 / Sales | **41** | 2,806 | **₹4.73 Cr** | 6 |
+| Nathaniel Sami | `akshay.siraswar+tm3@` | WSSTTY3 / **MDI** | **46** | 3,467 | **₹5.81 Cr** | 8 |
+
+The two peer logins are plus-addressed, so their invitations land in Akshay's
+inbox and no new mailbox was needed. Only their **email** is overridden — the
+generated names stay, so the roster still reads like a real sales organization
+rather than the same handful of colleagues wearing every hat.
 
 **Who actually manages what** — of the four real logins, only Abhinav owns a
 *territory*. Akshay covers all three of division 10's Sales territories as
@@ -44,8 +65,14 @@ Zonal Manager, so the other two keep their generated Territory Managers.
 
 | Persona | Chains visible |
 |---|---|
-| Abhinav, Akshay, Shivam | Sales only |
+| Abhinav, Viraj, Akshay, Shivam | Sales only |
+| Nathaniel (`+tm3`) | **MDI only** |
 | Neeraj | **Sales *and* MDI** |
+
+Adding a new persona is one command — `./sql/03_grant_persona.sh <email>` —
+which covers all fourteen grants across the five surfaces a persona needs
+(warehouse, catalog, schema, tables, functions, space and dashboard). Doing
+that by hand is how the warehouse grant went missing the first time.
 
 ---
 
@@ -66,7 +93,55 @@ modelling at the same time.
 Same territory code, two entirely separate management chains and two separate
 dealer sets — and only Head Office can see both.
 
-### 2. "Compare the Sales Hierarchy and the MDI Hierarchy by revenue"
+### 2. Two peers, side by side — and the arithmetic adds up
+
+Open the **same dashboard URL** in two incognito windows, signed in as two
+different Territory Managers. Same page, same widgets, different numbers.
+
+| | Abhinav (WSSTTY1) | Viraj (WSSTTY2) |
+|---|---|---|
+| Dealers | **70** | **41** |
+| Revenue | **₹10.52 Cr** | **₹4.73 Cr** |
+| Shared dealers | **0** | **0** |
+
+Same rank, same Zonal Manager above them, and **not one dealer in common**.
+
+Then the part worth doing on a calculator in front of the client — the three
+territories under Akshay:
+
+```
+WSSTTY1   Abhinav Sarkar     70 dealers    ₹10.52 Cr
+WSSTTY2   Viraj Tiwari       41 dealers    ₹ 4.73 Cr
+WSSTTY3   Rushil Saini       64 dealers    ₹ 6.63 Cr
+                          ─────────────────────────
+                  total    175 dealers    ₹21.88 Cr
+
+Akshay's own dashboard     175 dealers    ₹21.88 Cr     ← exact
+```
+
+**70 + 41 + 64 = 175.** No double-counting, nothing missing, no rounding. The
+roll-up is arithmetic, not assertion — and it is more convincing than any
+single screen.
+
+### 3. Same territory code, two managers, zero overlap
+
+`WSSTTY3` exists under both chains. Ask **"who manages WSSTTY3"** as two
+different people:
+
+| Asked by | Sees |
+|---|---|
+| **Akshay** (Zonal, Sales chain) | WSSTTY3 / **Sales** — Rushil Saini, **64 dealers**, ₹6.63 Cr |
+| **Nathaniel** (`+tm3`, MDI chain) | WSSTTY3 / **MDI** — himself, **46 dealers**, ₹5.81 Cr |
+| **Neeraj** (Head Office) | **both rows** |
+
+Overlap between those two dealer sets: **0**.
+
+This is the one that lands hardest, because it looks like it *should* overlap —
+it is the same territory code. And it is exactly the bug that was found and
+fixed: on an earlier build, 64 of 120 dealers resolved to **both** chains,
+which would have handed every one of them to two different managers.
+
+### 4. "Compare the Sales Hierarchy and the MDI Hierarchy by revenue"
 
 | Asked by | Expected answer |
 |---|---|
@@ -136,6 +211,38 @@ against the tables below now that the seed has grown.
 **Q1 against Abhinav's Q1 is the demo moment**: identical question, ₹10.52 Cr
 becomes ₹21.88 Cr, 70 dealers becomes 175 — and Abhinav's dealers are a strict
 subset of Akshay's.
+
+### Viraj Tiwari — Territory Manager, WSSTTY2 (peer, `+tm2`)
+
+| # | Question | Expected |
+|---|---|---|
+| 1 | What is my total revenue and how many dealers do I cover? | **₹4.73 Cr**, **41 dealers**, 2,806 transactions |
+| 2 | Who are my top 5 dealers? | #77 Dara Hardware Store ₹101.37 L, #246 Sani Agencies ₹98.05 L, #101 Kibe Hardware Store ₹96.63 L, #435 Sura Building Materials ₹95.29 L, #42 Prakash Traders ₹7.94 L |
+| 3 | How many dormant dealers do I have? | **6** |
+| 4 | Which product category sells the most for me? | **Sealants**, ₹2.55 Cr |
+| 5 | Which month was my best? | **June 2026**, ₹0.31 Cr |
+| 6 | What were sales in August 2026? | ₹19.75 L, 5,581 units, 130 transactions, 24 active dealers |
+| 7 | How many territories do I cover? | **1** — WSSTTY2 |
+| 8 | Show me dealer #150 | **Nothing visible** — that is Abhinav's dealer |
+
+Q8 is the isolation check. #150 is Abhinav's top dealer at ₹97.39 L; for Viraj
+it does not exist.
+
+### Nathaniel Sami — Territory Manager, WSSTTY3 / MDI (peer, `+tm3`)
+
+| # | Question | Expected |
+|---|---|---|
+| 1 | What is my total revenue and how many dealers do I cover? | **₹5.81 Cr**, **46 dealers**, 3,467 transactions |
+| 2 | Who are my top 5 dealers? | #134 Aurora Traders ₹98.76 L, #224 Tiwari Hardware Store ₹97.19 L, #139 Sunder Hardware Store ₹97.09 L, #372 Chhabra Agencies ₹95.87 L, #66 Wable Traders ₹92.44 L |
+| 3 | How many dormant dealers do I have? | **8** |
+| 4 | Which product category sells the most for me? | **Sealants**, ₹3.16 Cr |
+| 5 | Which month was my best? | **October 2025**, ₹0.39 Cr |
+| 6 | What were sales in August 2026? | ₹26.08 L, 7,427 units, 159 transactions, 27 active dealers |
+| 7 | Who manages territory WSSTTY3? | **1 row — the MDI chain only.** He is on WSSTTY3 himself, but the Sales Hierarchy row for the same code is invisible to him |
+| 8 | Compare Sales and MDI Hierarchy | **MDI only** — he cannot see the Sales chain at all |
+
+Q7 and Q8 are the dual-hierarchy proof from the other side: he sits on the same
+territory code as Rushil Saini and can see neither him nor his 64 dealers.
 
 ### Shivam Pandey — National Sales Manager
 
