@@ -111,8 +111,26 @@ for did, _ in divisions:
     field_teams.append([mdi_code, did, "MDI Hierarchy", master_mdi, ra1_mdi, ra2_mdi])
 
 # Head Office - cross-division, not tied to a single division_id
+ho_ids = []
 for _ in range(3):
-    make_person(ROLES["ho"], None, "All")
+    ho_ids.append(make_person(ROLES["ho"], None, "All"))
+
+# --- persona overrides ---------------------------------------------------
+# Map real workspace identities onto specific roster rows so RLS can be
+# tested and demoed with real logins, not just synthetic @salesdemo.com
+# addresses nobody can authenticate as. Chosen to form ONE real reporting
+# chain (Master -> RA1 -> RA2 -> HO), all in division 10's Sales Hierarchy,
+# so containment is directly demonstrable: Abhinav's scope subset of
+# Akshay's subset of Shivam's subset of Neeraj's (who sees everything).
+PERSONA_OVERRIDES = {
+    field_teams[0][3]: ("Abhinav Sarkar", "abhinav.sarkar@jellyfishtechnologies.com"),
+    field_teams[0][4]: ("Akshay Siraswar", "akshay.siraswar@jellyfishtechnologies.com"),
+    ra2_sales: ("Shivam Pandey", "shivam.pandey@jellyfishtechnologies.com"),
+    ho_ids[0]: ("Neeraj Kumar", "neeraj.kumar@jellyfishtechnologies.com"),
+}
+for _row in persons:
+    if _row[0] in PERSONA_OVERRIDES:
+        _row[1], _row[5] = PERSONA_OVERRIDES[_row[0]]
 
 # --- dim_customer ------------------------------------------------------------
 

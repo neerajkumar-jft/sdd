@@ -1,8 +1,8 @@
 person_id,person_name,role,division_id,hierarchy_type,user_email
-P001,Aryan Maharaj,National Sales Manager,,Sales Hierarchy,aryan.maharaj@salesdemo.com
+P001,Shivam Pandey,National Sales Manager,,Sales Hierarchy,shivam.pandey@jellyfishtechnologies.com
 P002,Udant Dewan,National Sales Manager,,MDI Hierarchy,udant.dewan@salesdemo.com
-P003,Gagan Sami,Regional/Zonal Sales Manager,10,Sales Hierarchy,gagan.sami@salesdemo.com
-P004,Ayushman Chander,Territory/Area Sales Manager,10,Sales Hierarchy,ayushman.chander@salesdemo.com
+P003,Akshay Siraswar,Regional/Zonal Sales Manager,10,Sales Hierarchy,akshay.siraswar@jellyfishtechnologies.com
+P004,Abhinav Sarkar,Territory/Area Sales Manager,10,Sales Hierarchy,abhinav.sarkar@jellyfishtechnologies.com
 P005,Viraj Tiwari,Territory/Area Sales Manager,10,Sales Hierarchy,viraj.tiwari@salesdemo.com
 P006,Rushil Saini,Territory/Area Sales Manager,10,Sales Hierarchy,rushil.saini@salesdemo.com
 P007,Saumya Mall,Regional/Zonal Sales Manager,10,MDI Hierarchy,saumya.mall@salesdemo.com
@@ -25,7 +25,7 @@ P023,Anamika Kanda,Territory/Area Sales Manager,40,Sales Hierarchy,anamika.kanda
 P024,Daksh Karnik,Territory/Area Sales Manager,40,Sales Hierarchy,daksh.karnik@salesdemo.com
 P025,Diya Rattan,Regional/Zonal Sales Manager,40,MDI Hierarchy,diya.rattan@salesdemo.com
 P026,Dominic Kakar,Territory/Area Sales Manager,40,MDI Hierarchy,dominic.kakar@salesdemo.com
-P027,Simon Tata,Head Office,,All,simon.tata@salesdemo.com
+P027,Neeraj Kumar,Head Office,,All,neeraj.kumar@jellyfishtechnologies.com
 P028,Tara Dhar,Head Office,,All,tara.dhar@salesdemo.com
 P029,Liam Koshy,Head Office,,All,liam.koshy@salesdemo.com
 P901,person6,HO,,ALL, Rhea.Menon@SALESDEMO.COM 
