@@ -179,16 +179,20 @@ def load_dashboard_data(token: str, email: str):
         "FROM pidilite_demo.gold.fact_sales_transaction GROUP BY 1, 2 ORDER BY 1",
     )
     divisions = run_query(conn, "SELECT division_id, division_name FROM pidilite_demo.gold.dim_division")
+    # Grouped by person_id, not person_name: two people in a real roster can
+    # share a name, and grouping on the name would silently merge their figures.
     salespeople = run_query(
         conn,
-        "SELECT p.person_name, p.role, SUM(f.revenue) AS revenue, COUNT(*) AS transactions "
+        "SELECT p.person_id, p.person_name, p.role, "
+        "       SUM(f.revenue) AS revenue, COUNT(*) AS transactions "
         "FROM pidilite_demo.gold.fact_sales_transaction f "
         "JOIN pidilite_demo.gold.dim_person p ON p.person_id = f.salesperson_id "
-        "GROUP BY p.person_name, p.role ORDER BY revenue DESC",
+        "GROUP BY p.person_id, p.person_name, p.role ORDER BY revenue DESC",
     )
     field_teams = run_query(
         conn,
         "SELECT ft.field_team_code, ft.hierarchy_type, ft.division_id, "
+        "ft.master_person_id, ft.ra1_person_id, ft.ra2_person_id, "
         "pm.person_name AS master_name, "
         "p1.person_name AS region_name, p2.person_name AS nation_name "
         "FROM pidilite_demo.gold.dim_field_team ft "
@@ -203,8 +207,23 @@ def load_dashboard_data(token: str, email: str):
     # once here so every comparison chart below (grouped by territory, region,
     # or nation) reads off the same enriched frame.
     territory_month = territory_month.merge(
-        field_teams[["field_team_code", "hierarchy_type", "region_name", "nation_name"]],
+        field_teams[[
+            "field_team_code", "hierarchy_type",
+            "ra1_person_id", "region_name",
+            "ra2_person_id", "nation_name",
+        ]],
         on=["field_team_code", "hierarchy_type"],
+        how="left",
+    )
+
+    # Which manager each salesperson reports to, so the performance chart can
+    # be coloured by region. A manager can hold more than one territory, so
+    # dedupe rather than assuming one row per person.
+    salespeople = salespeople.merge(
+        field_teams[["master_person_id", "region_name"]]
+        .drop_duplicates(subset=["master_person_id"])
+        .rename(columns={"master_person_id": "person_id"}),
+        on="person_id",
         how="left",
     )
 
@@ -309,12 +328,18 @@ if viewer_level == 1:
     st.caption("Hidden at territory level — these are cross-territory comparisons, and you have exactly one.")
 else:
     if viewer_level >= 4:
-        by_nation = territory_month.groupby("nation_name")["revenue"].sum().reset_index().sort_values("revenue", ascending=False)
+        by_nation = (
+            territory_month.groupby(["ra2_person_id", "nation_name"], dropna=False)["revenue"]
+            .sum().reset_index().sort_values("revenue", ascending=False)
+        )
         if len(by_nation):
             st.plotly_chart(px.bar(by_nation, x="nation_name", y="revenue", title="Revenue by National Manager"), use_container_width=True)
 
     if viewer_level >= 3:
-        by_region = territory_month.groupby("region_name")["revenue"].sum().reset_index().sort_values("revenue", ascending=False)
+        by_region = (
+            territory_month.groupby(["ra1_person_id", "region_name"], dropna=False)["revenue"]
+            .sum().reset_index().sort_values("revenue", ascending=False)
+        )
         if len(by_region):
             st.plotly_chart(px.bar(by_region, x="region_name", y="revenue", title="Revenue by Region (Zonal Manager)"), use_container_width=True)
 
@@ -382,14 +407,37 @@ if len(dealers):
         pcol_b.plotly_chart(px.bar(by_state, x="state", y="revenue_total", title="Revenue by State"), use_container_width=True)
 
 # ===========================================================================
-# 6. Management performance - comparing people under you; meaningless at
-# territory level, where "the team" is just yourself.
+# 6. Management performance. Meaningless at territory level, where "the team"
+# is just yourself.
+#
+# fact_sales_transaction.salesperson_id is always the Territory/Area Sales
+# Manager of the customer's field team, so this chart is always at territory
+# grain regardless of who is looking. That is deliberate - it ranks individual
+# performers, which is a real thing a National Manager wants. The comparison
+# against a viewer's own DIRECT reports lives in "Territory & Hierarchy" above,
+# where a National Manager gets their Zonal Managers and Head Office gets their
+# National Managers. So the heading here says whose managers these are rather
+# than implying they report to the viewer directly.
 # ===========================================================================
 if viewer_level >= 2:
     st.header("Management Performance")
     if len(salespeople):
+        # Colour by region, not by role: every salesperson here holds the same
+        # role, so colouring by it produces a one-entry legend that says
+        # nothing. Region tells you which Zonal Manager each one sits under,
+        # which is the grouping that actually varies.
+        heading = (
+            "Revenue by Territory Manager — my team"
+            if viewer_level == 2
+            else "Revenue by Territory Manager, grouped by Zonal Manager"
+        )
+        colour = "region_name" if salespeople["region_name"].nunique() > 1 else None
         st.plotly_chart(
-            px.bar(salespeople, x="person_name", y="revenue", color="role", title="Revenue by Salesperson"),
+            px.bar(
+                salespeople, x="person_name", y="revenue",
+                color=colour, title=heading,
+                labels={"person_name": "Territory Manager", "revenue": "Revenue", "region_name": "Zonal Manager"},
+            ),
             use_container_width=True,
         )
 
