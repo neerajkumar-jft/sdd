@@ -636,6 +636,14 @@ components.html(
                 position: fixed; inset: 0; width: 100vw; height: 100vh;
                 background: rgba(15, 17, 21, 0.5);
                 z-index: 2147483646;
+                /* Visual-only: this is here to out-stack the chart, not to
+                   act like a modal. Without this, it also captures every
+                   scroll/click on the rest of the page while the panel is
+                   open, since it's covering the full viewport. Passing
+                   events through leaves the dashboard behind it fully usable;
+                   the iframe and summary are separate elements, so the chat
+                   panel itself stays clickable regardless of this. */
+                pointer-events: none;
             }}
             #genie-widget summary {{ position: relative; z-index: 2147483647; }}
         `;
