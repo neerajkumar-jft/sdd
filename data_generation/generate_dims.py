@@ -131,21 +131,74 @@ for _ in range(3):
     ho_ids.append(make_person(ROLES["ho"], None, "All"))
 
 # --- persona overrides ---------------------------------------------------
-# Map real workspace identities onto specific roster rows so RLS can be
-# tested and demoed with real logins, not just synthetic @salesdemo.com
-# addresses nobody can authenticate as. Chosen to form ONE real reporting
-# chain (Master -> RA1 -> RA2 -> HO), all in division 10's Sales Hierarchy,
-# so containment is directly demonstrable: Abhinav's scope subset of
-# Akshay's subset of Shivam's subset of Neeraj's (who sees everything).
+# Map real workspace identities onto specific roster rows so RLS can be tested
+# and demoed with real logins, not just synthetic @salesdemo.com addresses that
+# nobody can authenticate as.
+#
+# Looked up by (code, chain) rather than by list index. Index arithmetic here is
+# what previously made it look like Abhinav managed WSSTTY3 when he manages
+# WSSTTY1 - a wrong mapping is invisible in the data and only shows up when
+# somebody checks an answer by hand.
+#
+# Two shapes of override, serving two different demo arguments:
+#
+#   VERTICAL - one real reporting chain (Master -> RA1 -> RA2 -> Head Office),
+#   so containment is directly demonstrable. Both name and email are replaced,
+#   because seeing your own name on the dashboard is the point.
+#
+#   LATERAL - two more Territory Managers, so isolation between PEERS is
+#   demonstrable as well. Containment alone invites "well of course the boss
+#   sees more"; two managers at the same level with completely disjoint dealers
+#   answers the question a client actually asks, which is whether one territory
+#   manager can see another's numbers. Here only the EMAIL is replaced - the
+#   generated names stay, so the roster still reads like a real sales
+#   organization rather than four colleagues wearing every hat.
+#
+# The pyramid only widens downward: there is exactly one Head Office and one
+# National Sales Manager by definition, so extra peer identities are only
+# meaningful at territory level.
+
+
+def _master_of(code, chain):
+    return next(f[3] for f in field_teams if f[0] == code and f[2] == chain)
+
+
+def _ra1_of(code, chain):
+    return next(f[4] for f in field_teams if f[0] == code and f[2] == chain)
+
+
 PERSONA_OVERRIDES = {
-    field_teams[0][3]: ("Abhinav Sarkar", "abhinav.sarkar@jellyfishtechnologies.com"),
-    field_teams[0][4]: ("Akshay Siraswar", "akshay.siraswar@jellyfishtechnologies.com"),
+    # vertical chain - (name, email)
+    _master_of("WSSTTY1", "Sales Hierarchy"): (
+        "Abhinav Sarkar", "abhinav.sarkar@jellyfishtechnologies.com"),
+    _ra1_of("WSSTTY1", "Sales Hierarchy"): (
+        "Akshay Siraswar", "akshay.siraswar@jellyfishtechnologies.com"),
     ra2_sales: ("Shivam Pandey", "shivam.pandey@jellyfishtechnologies.com"),
     ho_ids[0]: ("Neeraj Kumar", "neeraj.kumar@jellyfishtechnologies.com"),
+
+    # lateral peers - (None = keep the generated name, override the email only)
+    _master_of("WSSTTY2", "Sales Hierarchy"): (
+        None, "akshay.siraswar+tm2@jellyfishtechnologies.com"),   # peer under the same Zonal Manager
+    _master_of("WSSTTY3", "MDI Hierarchy"): (
+        None, "akshay.siraswar+tm3@jellyfishtechnologies.com"),   # same territory code, other chain
+
+    # A second Zonal Manager, deliberately in a DIFFERENT division. Territory
+    # peers answer "can one territory manager see another's dealers"; this
+    # answers a different and more senior question - "can the head of one
+    # business line see another business line at all". Division 20 also sells a
+    # different product mix, so the two Zonal dashboards look visibly unlike
+    # each other rather than merely carrying different totals. It also makes the
+    # second roll-up level demonstrable: the four Sales-chain Zonal Managers sum
+    # exactly to the National Manager's own dashboard.
+    _ra1_of("WSSTTY4", "Sales Hierarchy"): (
+        None, "akshay.siraswar+zm2@jellyfishtechnologies.com"),
 }
 for _row in persons:
     if _row[0] in PERSONA_OVERRIDES:
-        _row[1], _row[5] = PERSONA_OVERRIDES[_row[0]]
+        _name, _email = PERSONA_OVERRIDES[_row[0]]
+        if _name:
+            _row[1] = _name
+        _row[5] = _email
 
 # --- dim_customer ------------------------------------------------------------
 

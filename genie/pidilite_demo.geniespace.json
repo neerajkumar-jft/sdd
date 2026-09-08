@@ -22,6 +22,9 @@
       },
       {
         "identifier": "pidilite_demo.gold.fact_sales_transaction"
+      },
+      {
+        "identifier": "pidilite_demo.gold.v_comments_scoped"
       }
     ]
   },
@@ -129,6 +132,25 @@
           "* **Recent** — the trailing 90 days from the anchor date, matching",
           "  `agg_dealer_scorecard.revenue_recent`.",
           "",
+          "# Comments from the field",
+          "",
+          "Field staff can attach free-text comments to a dealer or a territory. Read",
+          "them from `v_comments_scoped`, which is already filtered to whatever the",
+          "caller is entitled to see.",
+          "",
+          "* **Never** query `pidilite_comments.public.comments` directly. That is the",
+          "  raw federated table, it carries no row filter, and reading it would show",
+          "  the caller comments about dealers outside their own scope.",
+          "* `scope_type` says what a comment is attached to ('customer' or",
+          "  'field_team'), and `scope_id` is that record's id **as text**. To join",
+          "  comments to dealers, cast: `cast(c.scope_id AS INT) = cust.customer_code`",
+          "  for `scope_type = 'customer'`.",
+          "* `author_email` is who wrote it. `created_at` is when.",
+          "* These are people's own words, not measurements. **Quote them** when",
+          "  answering rather than paraphrasing them into a statistic, and never",
+          "  aggregate comment text. Counting comments is fine; averaging their",
+          "  sentiment is not something this data supports.",
+          "",
           "# Do not invent",
           "",
           "There is no target, quota, budget, margin, cost, discount, stock or",
@@ -162,7 +184,7 @@
           "ORDER BY revenue DESC",
           "LIMIT 5"
         ],
-        "id": "0039b5904ba25248d99a86102f74327c"
+        "id": "007ae4f1414711491b8c99dae4e61e68"
       },
       {
         "question": [
@@ -182,7 +204,7 @@
           "        (SELECT max(month) FROM pidilite_demo.gold.agg_sales_by_territory_month), -12)",
           "ORDER BY field_team_code, hierarchy_type, month"
         ],
-        "id": "01399c5e4b5ed04e8ba67b0f92c8158f"
+        "id": "012215cdfb3a9a42c2ac7f6fb43019ed"
       },
       {
         "question": [
@@ -202,7 +224,7 @@
           "WHERE is_dormant",
           "ORDER BY revenue_total DESC"
         ],
-        "id": "025e591f3765464ad385e69633dafbb6"
+        "id": "023d89a4b7e7e2405098fe84ed3270fd"
       },
       {
         "question": [
@@ -225,7 +247,7 @@
           "WHERE ft.field_team_code = 'WSSTTY3'",
           "ORDER BY ft.hierarchy_type"
         ],
-        "id": "03d6a8300eab6d4b2b8533506f92bc76"
+        "id": "03df0b4d6417744b67b8d51037202c85"
       },
       {
         "question": [
@@ -244,7 +266,7 @@
           "GROUP BY d.division_name, f.product_category",
           "ORDER BY revenue DESC"
         ],
-        "id": "043f6844f07fcd49d0bc576da784fd99"
+        "id": "0452f29f94ed5144a98afc560d2fa349"
       },
       {
         "question": [
@@ -260,7 +282,7 @@
           "FROM pidilite_demo.gold.fact_sales_transaction f",
           "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code"
         ],
-        "id": "05b18b9101089144c9af812ba1b8004f"
+        "id": "05889cd294bfec45cab3a5ce0aabba7b"
       },
       {
         "question": [
@@ -277,7 +299,27 @@
           "GROUP BY c.hierarchy_type",
           "ORDER BY revenue DESC"
         ],
-        "id": "06aac55838ec7346b29a53c9c8170f0f"
+        "id": "062a79c3a260ab410b84b85ae209111d"
+      },
+      {
+        "question": [
+          "What has been said about my dealers recently?"
+        ],
+        "sql": [
+          "-- Comments come from v_comments_scoped, never the raw federated table.",
+          "-- scope_id is TEXT, so cast it to join against customer_code.",
+          "SELECT cm.created_at,",
+          "       cm.author_email,",
+          "       c.customer_name,",
+          "       c.field_team_code,",
+          "       cm.comment_text",
+          "FROM pidilite_demo.gold.v_comments_scoped cm",
+          "JOIN pidilite_demo.gold.dim_customer c",
+          "  ON cast(cm.scope_id AS INT) = c.customer_code",
+          "WHERE cm.scope_type = 'customer'",
+          "ORDER BY cm.created_at DESC"
+        ],
+        "id": "072fc7b1eb04134854b09e8dd17aaf13"
       }
     ]
   },

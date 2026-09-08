@@ -36,7 +36,7 @@ Gold:   pidilite_demo.gold.dim_*/fact_sales_transaction
         pidilite_demo.gold.access_map_field_team   (entitlements, user_email → field_team_code)
         │  row filters keyed on current_user()
         ▼
-        Genie space (natural language)  ·  AI/BI Dashboard
+        Genie space (8 tables, natural language)  ·  AI/BI Dashboard
 
 Lakebase (OLTP Postgres, separate from the pipeline above)
         pidilite-comments instance → public.comments table
@@ -78,6 +78,76 @@ One correctness detail worth knowing: `gold.py`'s tables are Lakeflow
 `ALTER MATERIALIZED VIEW ... SET ROW FILTER`, not `ALTER TABLE` (which Unity
 Catalog rejects with `EXPECT_TABLE_NOT_VIEW`). Both filter-attachment and
 full-refresh survival have been verified against this workspace.
+
+### Demo personas
+
+Six real workspace logins, mapped onto roster rows in
+`data_generation/generate_dims.py`. Two sets, proving two different things:
+
+- **Vertical** — Abhinav (Territory) → Akshay (Zonal) → Shivam (National) →
+  Neeraj (Head Office). Proves *containment*: 70 ⊂ 175 ⊂ 384 ⊂ 501 dealers.
+- **Lateral** — three more logins, proving *isolation*: peers of the same rank
+  see completely disjoint dealers. Containment alone invites "of course the boss
+  sees more"; lateral answers what a client actually asks.
+  - `+tm2` on WSSTTY2 and `+tm3` on WSSTTY3's **MDI** chain — *"can one
+    territory manager see another's dealers?"* (70 vs 41, overlap 0; and the
+    MDI one shares a territory code with a Sales-chain team it cannot see).
+  - `+zm2` — a second Zonal Manager in a **different division** — *"can the
+    head of one business line see another business line at all?"*, which is
+    the more senior question. Their product mixes differ too, so the two
+    dashboards look unlike each other rather than merely carrying different
+    totals.
+
+  The roll-up is exact at **both** levels, so the hierarchy is verifiable
+  arithmetic rather than assertion: 70 + 41 + 64 = 175 dealers under Akshay,
+  and 175 + 80 + 58 + 71 = 384 under Shivam.
+
+The peer logins are plus-addressed, so invitations land in an existing inbox
+and no new mailbox is needed. Only their email is overridden; the generated
+names stay, so the roster reads like a sales organization rather than the same
+few colleagues wearing every hat.
+
+#### Comments are read through a scoped view, not the table
+
+`pidilite_comments.public.comments` is a **federated** table over Lakebase
+Postgres, so it carries no Unity Catalog row filter — and the personas had been
+granted `SELECT` on it directly. That left the comment *write* path governed
+(the comment app checks the access maps server-side before allowing a comment)
+while the *read* path was wide open: any persona could read every comment,
+including notes about dealers outside their own scope. Someone else's note on a
+dealer you cannot see is itself a disclosure — it tells you the dealer exists
+and what is happening with it.
+
+`sql/04_comments_scoped_view.sql` creates `gold.v_comments_scoped`, which
+resolves `current_user()` against the access maps, and the grant script now
+grants that view and **revokes** the base table. The grant on the base table
+was vestigial in any case: it existed for a "Recent Comments" widget that has
+since moved into its own app, which reads Postgres directly and never needed it.
+
+One known imprecision is recorded inline: the comments table stores `scope_id`
+with no `hierarchy_type`, so a territory-scoped comment can only be matched on
+the code — the same code-alone ambiguity the dimensional model was fixed for.
+The proper fix is a `hierarchy_type` column on the comments table; the comment
+app already receives it in the URL, it just is not stored.
+
+A persona needs privileges on **five separate surfaces** — SQL warehouse,
+catalog and schema, the gold tables, the filter functions, and the Genie space
+and dashboard — and missing any one fails in a way that does not point at the
+cause. The warehouse grant was missed once and the symptom was *"not authorized
+to use or monitor this SQL Endpoint"* from inside Genie, which reads like a
+Genie fault. So it is one idempotent command:
+
+```bash
+./sql/03_grant_persona.sh <email> [profile]
+```
+
+Sixteen grants, idempotent, and it includes the comments view plus the revoke
+on the base table — so the read path stays closed for every persona added
+later, not only the ones that existed when the gap was found.
+
+`gold.access_map_*` is deliberately absent from what it grants: a user needs
+`EXECUTE` on the row-filter function, never read access to the entitlement
+tables.
 
 `tests/verify_access_map_logic.py` proves the entitlement algebra offline, in
 plain Python against the generated CSVs (containment, no cross-hierarchy
@@ -159,7 +229,9 @@ src/pidilite_demo/
 └── gold.py                             # conformed model + derived access maps
 sql/
 ├── 01_row_filters.sql                  # filter functions, ALTER ... SET ROW FILTER, grants
-└── 02_verify_rls.sql                   # RLS verification checklist
+├── 02_verify_rls.sql                   # RLS verification checklist
+├── 03_grant_persona.sh                 # all 16 grants for one persona, idempotent
+└── 04_comments_scoped_view.sql         # scope-filtered view over the federated comments table
 dashboards/
 ├── x_industries_sales_overview.lvdash.json          # AI/BI dashboard definition
 └── x_industries_sales_overview.dashboard.yml.reference  # bundle config, deliberately NOT wired in
