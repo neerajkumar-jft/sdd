@@ -585,10 +585,25 @@ components.html(
     f"""
     <script>
     (function() {{
-        const doc = window.parent.document;
-        if (doc.getElementById('genie-widget')) {{ return; }}
+        // window.top, not window.parent: Databricks Apps appears to wrap the
+        // Streamlit app in its own outer frame, so .parent only escapes ONE
+        // level and still lands inside a constrained ancestor - which is
+        // exactly why max z-index wasn't enough. .top always reaches the
+        // real, outermost window regardless of how many frames are nested.
+        const doc = window.top.document;
+        // Always tear down and rebuild rather than "if present, skip":
+        // Streamlit reruns this script on every interaction, but a stale
+        // element from an OLDER deploy - injected earlier in this same
+        // long-lived browser tab, before a CSS/z-index fix shipped - would
+        // otherwise sit there forever, since a plain existence check has no
+        // way to tell "already correct" from "already stale."
+        const oldWidget = doc.getElementById('genie-widget');
+        if (oldWidget) {{ oldWidget.remove(); }}
+        const oldStyle = doc.getElementById('genie-widget-style');
+        if (oldStyle) {{ oldStyle.remove(); }}
 
         const style = doc.createElement('style');
+        style.id = 'genie-widget-style';
         style.textContent = `
             #genie-widget {{
                 position: fixed; bottom: 24px; right: 24px; z-index: 2147483647;
