@@ -129,8 +129,8 @@ ROLE_LEVELS = {
 }
 with conn.cursor() as cur:
     cur.execute(
-        "SELECT role FROM pidilite_demo.gold.dim_person WHERE lower(user_email) = lower(%s) LIMIT 1",
-        (email,),
+        "SELECT role FROM pidilite_demo.gold.dim_person WHERE lower(user_email) = lower(:email) LIMIT 1",
+        {"email": email},
     )
     _role_row = cur.fetchone()
 viewer_role = _role_row[0] if _role_row else None
