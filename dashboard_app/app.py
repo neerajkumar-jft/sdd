@@ -113,87 +113,101 @@ if not email or not token:
 st.title("X Industries — Sales Dashboard")
 st.caption(f"Viewing as **{email}** — every figure below is scoped to what you're entitled to see.")
 
-conn = get_connection(token)
-
-# Viewer's own role - dim_person carries no row filter (it's the internal org
-# roster, already exposed to Genie), so this just resolves who's asking rather
-# than restricting anything. Used below to size the dashboard to the role:
-# each tier gets one more layer of cross-comparison than the tier below it,
-# since RLS has already cut the rows down to just that scope - a Territory
-# Manager's "revenue by territory" chart would just be a single bar.
 ROLE_LEVELS = {
     "Territory/Area Sales Manager": 1,
     "Regional/Zonal Sales Manager": 2,
     "National Sales Manager": 3,
     "Head Office": 4,
 }
-with conn.cursor() as cur:
-    cur.execute(
-        "SELECT role FROM pidilite_demo.gold.dim_person WHERE lower(user_email) = lower(:email) LIMIT 1",
-        {"email": email},
+
+
+# Streamlit reruns this whole script top-to-bottom on EVERY widget interaction
+# (editing a cell in "My Comments", clicking Save, anything) - without caching,
+# every one of those reruns re-fires all 7 warehouse queries below, even
+# though only the Lakebase comments actually changed. Cached per (token,
+# email) - each viewer's own OBO token, so no risk of one viewer's cached rows
+# being served to another; a cache hit for the same viewer is the whole point.
+@st.cache_data(ttl=300, show_spinner="Loading your data…")
+def load_dashboard_data(token: str, email: str):
+    conn = get_connection(token)
+
+    # Viewer's own role - dim_person carries no row filter (it's the internal
+    # org roster, already exposed to Genie), so this just resolves who's
+    # asking rather than restricting anything. Used to size the dashboard to
+    # the role: each tier gets one more layer of cross-comparison than the
+    # tier below it, since RLS has already cut the rows down to just that
+    # scope - a Territory Manager's "revenue by territory" chart would just
+    # be a single bar.
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT role FROM pidilite_demo.gold.dim_person WHERE lower(user_email) = lower(:email) LIMIT 1",
+            {"email": email},
+        )
+        _role_row = cur.fetchone()
+    role = _role_row[0] if _role_row else None
+
+    dealers = run_query(
+        conn,
+        "SELECT customer_code, customer_name, field_team_code, hierarchy_type, division_id, city, state, "
+        "revenue_total, revenue_recent, transactions, first_sale, last_sale, days_since_last_sale, "
+        "is_dormant, top_category, as_of_date "
+        "FROM pidilite_demo.gold.agg_dealer_scorecard",
     )
-    _role_row = cur.fetchone()
-viewer_role = _role_row[0] if _role_row else None
+    territory_month = run_query(
+        conn,
+        "SELECT field_team_code, hierarchy_type, division_id, month, revenue, quantity, transactions, active_dealers "
+        "FROM pidilite_demo.gold.agg_sales_by_territory_month",
+    )
+    category = run_query(
+        conn,
+        "SELECT product_category, SUM(quantity) AS quantity, SUM(revenue) AS revenue "
+        "FROM pidilite_demo.gold.fact_sales_transaction GROUP BY product_category ORDER BY revenue DESC",
+    )
+    category_by_month = run_query(
+        conn,
+        "SELECT date_trunc('month', transaction_date) AS month, product_category, SUM(revenue) AS revenue "
+        "FROM pidilite_demo.gold.fact_sales_transaction GROUP BY 1, 2 ORDER BY 1",
+    )
+    divisions = run_query(conn, "SELECT division_id, division_name FROM pidilite_demo.gold.dim_division")
+    salespeople = run_query(
+        conn,
+        "SELECT p.person_name, p.role, SUM(f.revenue) AS revenue, COUNT(*) AS transactions "
+        "FROM pidilite_demo.gold.fact_sales_transaction f "
+        "JOIN pidilite_demo.gold.dim_person p ON p.person_id = f.salesperson_id "
+        "GROUP BY p.person_name, p.role ORDER BY revenue DESC",
+    )
+    field_teams = run_query(
+        conn,
+        "SELECT ft.field_team_code, ft.hierarchy_type, ft.division_id, "
+        "pm.person_name AS master_name, "
+        "p1.person_name AS region_name, p2.person_name AS nation_name "
+        "FROM pidilite_demo.gold.dim_field_team ft "
+        "LEFT JOIN pidilite_demo.gold.dim_person pm ON pm.person_id = ft.master_person_id "
+        "LEFT JOIN pidilite_demo.gold.dim_person p1 ON p1.person_id = ft.ra1_person_id "
+        "LEFT JOIN pidilite_demo.gold.dim_person p2 ON p2.person_id = ft.ra2_person_id "
+        "ORDER BY ft.field_team_code",
+    )
+    # "Region" and "nation" aren't separate dimensions - dim_field_team already
+    # carries ra1_person_id/ra2_person_id, so a region IS just "the territories
+    # reporting to this particular Zonal Manager". Merged onto territory_month
+    # once here so every comparison chart below (grouped by territory, region,
+    # or nation) reads off the same enriched frame.
+    territory_month = territory_month.merge(
+        field_teams[["field_team_code", "hierarchy_type", "region_name", "nation_name"]],
+        on=["field_team_code", "hierarchy_type"],
+        how="left",
+    )
+
+    return role, dealers, territory_month, category, category_by_month, divisions, salespeople, field_teams
+
+
+viewer_role, dealers, territory_month, category, category_by_month, divisions, salespeople, field_teams = (
+    load_dashboard_data(token, email)
+)
 # Unrecognized role fails open to the fullest view - this only ever adds or
 # removes CHART SECTIONS, never row access, so there's nothing unsafe about
 # defaulting broad for a login dim_person doesn't recognize.
 viewer_level = ROLE_LEVELS.get(viewer_role, 4)
-
-# ---------------------------------------------------------------------------
-# Data pulls - a handful of richer queries; almost everything below is
-# derived from these three dataframes in pandas rather than re-queried.
-# ---------------------------------------------------------------------------
-dealers = run_query(
-    conn,
-    "SELECT customer_code, customer_name, field_team_code, hierarchy_type, division_id, city, state, "
-    "revenue_total, revenue_recent, transactions, first_sale, last_sale, days_since_last_sale, "
-    "is_dormant, top_category, as_of_date "
-    "FROM pidilite_demo.gold.agg_dealer_scorecard",
-)
-territory_month = run_query(
-    conn,
-    "SELECT field_team_code, hierarchy_type, division_id, month, revenue, quantity, transactions, active_dealers "
-    "FROM pidilite_demo.gold.agg_sales_by_territory_month",
-)
-category = run_query(
-    conn,
-    "SELECT product_category, SUM(quantity) AS quantity, SUM(revenue) AS revenue "
-    "FROM pidilite_demo.gold.fact_sales_transaction GROUP BY product_category ORDER BY revenue DESC",
-)
-category_by_month = run_query(
-    conn,
-    "SELECT date_trunc('month', transaction_date) AS month, product_category, SUM(revenue) AS revenue "
-    "FROM pidilite_demo.gold.fact_sales_transaction GROUP BY 1, 2 ORDER BY 1",
-)
-divisions = run_query(conn, "SELECT division_id, division_name FROM pidilite_demo.gold.dim_division")
-salespeople = run_query(
-    conn,
-    "SELECT p.person_name, p.role, SUM(f.revenue) AS revenue, COUNT(*) AS transactions "
-    "FROM pidilite_demo.gold.fact_sales_transaction f "
-    "JOIN pidilite_demo.gold.dim_person p ON p.person_id = f.salesperson_id "
-    "GROUP BY p.person_name, p.role ORDER BY revenue DESC",
-)
-field_teams = run_query(
-    conn,
-    "SELECT ft.field_team_code, ft.hierarchy_type, ft.division_id, "
-    "pm.person_name AS master_name, "
-    "p1.person_name AS region_name, p2.person_name AS nation_name "
-    "FROM pidilite_demo.gold.dim_field_team ft "
-    "LEFT JOIN pidilite_demo.gold.dim_person pm ON pm.person_id = ft.master_person_id "
-    "LEFT JOIN pidilite_demo.gold.dim_person p1 ON p1.person_id = ft.ra1_person_id "
-    "LEFT JOIN pidilite_demo.gold.dim_person p2 ON p2.person_id = ft.ra2_person_id "
-    "ORDER BY ft.field_team_code",
-)
-# "Region" and "nation" aren't separate dimensions - dim_field_team already
-# carries ra1_person_id/ra2_person_id, so a region IS just "the territories
-# reporting to this particular Zonal Manager". Merged onto territory_month
-# once here so every comparison chart below (grouped by territory, region, or
-# nation) reads off the same enriched frame.
-territory_month = territory_month.merge(
-    field_teams[["field_team_code", "hierarchy_type", "region_name", "nation_name"]],
-    on=["field_team_code", "hierarchy_type"],
-    how="left",
-)
 
 no_data = len(dealers) == 0
 if no_data:
