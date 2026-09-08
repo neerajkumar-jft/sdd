@@ -123,50 +123,6 @@ if not email or not token:
 st.title("X Industries — Sales Dashboard")
 st.caption(f"Viewing as **{email}** — every figure below is scoped to what you're entitled to see.")
 
-GENIE_EMBED_URL = (
-    "https://dbc-b53b2bf8-6950.cloud.databricks.com/embed/genie/rooms/"
-    "01f1aaa58a6c1e639422daac2f1a1dd9?o=7474658069346952"
-)
-
-# Floating Genie chat bubble, bottom-right - a <details>/<summary> toggle
-# rather than a JS-driven one: st.components.v1.html would sandbox this into
-# its own nested iframe, where `position: fixed` only floats within that
-# iframe's own box, not the whole app - and st.markdown strips <script> tags
-# outright. <details> gives click-to-toggle with neither, injected straight
-# into the real page DOM. column-reverse flips the visual stacking so the
-# iframe opens ABOVE the button instead of pushing off-screen below it.
-# Auth is whatever the viewer's own browser already has open with Databricks -
-# same SSO session, same per-user row filters as every other Genie answer
-# verified earlier in this project; embedding changes nothing about that.
-st.markdown(
-    f"""
-    <style>
-    #genie-widget {{
-        position: fixed; bottom: 24px; right: 24px; z-index: 999999;
-        display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 12px;
-    }}
-    #genie-widget summary {{
-        list-style: none; width: 56px; height: 56px; border-radius: 50%;
-        background: #FF3621; color: white; display: flex; align-items: center;
-        justify-content: center; font-size: 26px; cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }}
-    #genie-widget summary::-webkit-details-marker {{ display: none; }}
-    #genie-widget iframe {{
-        width: min(480px, calc(100vw - 48px));
-        height: min(720px, calc(100vh - 120px));
-        border: none; border-radius: 12px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.35);
-    }}
-    </style>
-    <details id="genie-widget">
-        <summary>💬</summary>
-        <iframe src="{GENIE_EMBED_URL}" allow="clipboard-write"></iframe>
-    </details>
-    """,
-    unsafe_allow_html=True,
-)
-
 ROLE_LEVELS = {
     "Territory/Area Sales Manager": 1,
     "Regional/Zonal Sales Manager": 2,
@@ -597,3 +553,57 @@ if len(my_comments):
             st.info("No changes to save.")
 else:
     st.caption("You haven't added any comments yet.")
+
+# ===========================================================================
+# Floating Genie chat bubble, bottom-right - a <details>/<summary> toggle
+# rather than a JS-driven one: st.components.v1.html would sandbox this into
+# its own nested iframe, where `position: fixed` only floats within that
+# iframe's own box, not the whole app - and st.markdown strips <script> tags
+# outright. <details> gives click-to-toggle with neither, injected straight
+# into the real page DOM. column-reverse flips the visual stacking so the
+# iframe opens ABOVE the button instead of pushing off-screen below it.
+#
+# Placed LAST, not near the top: Streamlit wraps each top-level block (this
+# one, each chart) in its own animated container, which creates a separate
+# CSS stacking context per block. z-index only wins within a shared stacking
+# context - across separate ones, later-in-DOM wins regardless of z-index, so
+# a Plotly chart declared after this widget was painting over it even at
+# z-index 999999. Being the last block in the script wins that tiebreak
+# against everything above it.
+#
+# Auth is whatever the viewer's own browser already has open with Databricks -
+# same SSO session, same per-user row filters as every other Genie answer
+# verified earlier in this project; embedding changes nothing about that.
+# ===========================================================================
+GENIE_EMBED_URL = (
+    "https://dbc-b53b2bf8-6950.cloud.databricks.com/embed/genie/rooms/"
+    "01f1aaa58a6c1e639422daac2f1a1dd9?o=7474658069346952"
+)
+st.markdown(
+    f"""
+    <style>
+    #genie-widget {{
+        position: fixed; bottom: 24px; right: 24px; z-index: 999999;
+        display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 12px;
+    }}
+    #genie-widget summary {{
+        list-style: none; width: 56px; height: 56px; border-radius: 50%;
+        background: #FF3621; color: white; display: flex; align-items: center;
+        justify-content: center; font-size: 26px; cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }}
+    #genie-widget summary::-webkit-details-marker {{ display: none; }}
+    #genie-widget iframe {{
+        width: min(480px, calc(100vw - 48px));
+        height: min(720px, calc(100vh - 120px));
+        border: none; border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    }}
+    </style>
+    <details id="genie-widget">
+        <summary>💬</summary>
+        <iframe src="{GENIE_EMBED_URL}" allow="clipboard-write"></iframe>
+    </details>
+    """,
+    unsafe_allow_html=True,
+)
