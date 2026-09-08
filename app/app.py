@@ -24,7 +24,7 @@ import time
 import psycopg2
 import streamlit as st
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.sql import StatementState
+from databricks.sdk.service.sql import StatementParameterListItem, StatementState
 
 INSTANCE_NAME = "pidilite-comments"
 WAREHOUSE_ID = "be5dd2cb70eb66ee"
@@ -91,8 +91,8 @@ def is_authorized(email: str, scope_type: str, scope_id: str, hierarchy_type: st
             "WHERE lower(user_email) = lower(:email) AND customer_code = :code LIMIT 1"
         )
         params = [
-            {"name": "email", "value": email},
-            {"name": "code", "value": scope_id, "type": "INT"},
+            StatementParameterListItem(name="email", value=email),
+            StatementParameterListItem(name="code", value=scope_id, type="INT"),
         ]
     else:  # field_team - identity is the (code, hierarchy_type) pair, never the code alone
         stmt = (
@@ -101,9 +101,9 @@ def is_authorized(email: str, scope_type: str, scope_id: str, hierarchy_type: st
             "AND hierarchy_type = :ht LIMIT 1"
         )
         params = [
-            {"name": "email", "value": email},
-            {"name": "code", "value": scope_id},
-            {"name": "ht", "value": hierarchy_type},
+            StatementParameterListItem(name="email", value=email),
+            StatementParameterListItem(name="code", value=scope_id),
+            StatementParameterListItem(name="ht", value=hierarchy_type),
         ]
     try:
         return len(run_sql(stmt, params)) > 0
