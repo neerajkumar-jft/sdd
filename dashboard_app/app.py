@@ -30,6 +30,27 @@ from databricks.sdk.core import Config
 
 st.set_page_config(page_title="X Industries — Sales Dashboard", layout="wide")
 
+# Light global polish - section headers (st.header renders as <h2>) get a
+# brand-colour underline, and the HTML tables from render_linked_table get a
+# header fill + zebra striping. Everything else (layout, sections, charts)
+# stays exactly as it was - this only touches how it looks, not what's on it.
+st.markdown(
+    """
+    <style>
+    h2 { border-bottom: 3px solid #FF3621; padding-bottom: 8px; margin-top: 2.2rem; }
+    table.styled-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.styled-table thead th {
+        background: #FF3621; color: white; text-align: left;
+        padding: 8px 10px; position: sticky; top: 0;
+    }
+    table.styled-table tbody td { padding: 7px 10px; }
+    table.styled-table tbody tr:nth-child(even) { background: #f7f7f9; }
+    table.styled-table tbody tr:hover { background: #ffece8; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 WAREHOUSE_ID = "be5dd2cb70eb66ee"
 LAKEBASE_INSTANCE = "pidilite-comments"
 COMMENT_APP_URL = "https://pidilite-comments-app-7474658069346952.aws.databricksapps.com"
@@ -96,15 +117,15 @@ def run_query(conn, query: str) -> pd.DataFrame:
 
 def render_linked_table(df: pd.DataFrame, display_cols: list, link_fn) -> None:
     """Render df as an HTML table with a trailing clickable 'Comment' column."""
-    headers = "".join(f"<th style='text-align:left;padding:6px 10px'>{html.escape(c)}</th>" for c in display_cols)
-    headers += "<th style='text-align:left;padding:6px 10px'>Comment</th>"
+    headers = "".join(f"<th>{html.escape(c)}</th>" for c in display_cols)
+    headers += "<th>Comment</th>"
     rows_html = []
     for _, r in df.iterrows():
-        cells = "".join(f"<td style='padding:6px 10px'>{html.escape(str(r[c]))}</td>" for c in display_cols)
-        cells += f"<td style='padding:6px 10px'><a href='{link_fn(r)}' target='_blank' rel='noopener'>💬 Comment</a></td>"
+        cells = "".join(f"<td>{html.escape(str(r[c]))}</td>" for c in display_cols)
+        cells += f"<td><a href='{link_fn(r)}' target='_blank' rel='noopener'>💬 Comment</a></td>"
         rows_html.append(f"<tr>{cells}</tr>")
     table = (
-        "<table style='width:100%;border-collapse:collapse;font-size:14px'>"
+        "<table class='styled-table'>"
         f"<thead><tr>{headers}</tr></thead><tbody>{''.join(rows_html)}</tbody></table>"
     )
     st.markdown(table, unsafe_allow_html=True)
@@ -122,7 +143,6 @@ if not email or not token:
     st.stop()
 
 st.title("X Industries — Sales Dashboard")
-st.caption(f"Viewing as **{email}** — every figure below is scoped to what you're entitled to see.")
 
 ROLE_LEVELS = {
     "Territory/Area Sales Manager": 1,
@@ -239,6 +259,8 @@ viewer_role, dealers, territory_month, category, category_by_month, divisions, s
 # defaulting broad for a login dim_person doesn't recognize.
 viewer_level = ROLE_LEVELS.get(viewer_role, 4)
 
+st.caption(f"Viewing as **{email}** — {viewer_role or 'role not on record'}")
+
 no_data = len(dealers) == 0
 if no_data:
     st.warning("No dealers visible to your role — the sections below will be empty.")
@@ -270,16 +292,49 @@ if len(month_rev) >= 2:
     if prev:
         mom_growth = (last - prev) / prev * 100
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Total Revenue (Rs)", f"{total_revenue:,.0f}")
-c2.metric("Total Transactions", f"{total_txns:,.0f}")
-c3.metric("Active Dealers", active_count)
-c4.metric("Dormant Dealers", dormant_count)
+if mom_growth is None:
+    growth_html, growth_class = "—", "kpi-flat"
+else:
+    arrow = "▲" if mom_growth >= 0 else "▼"
+    growth_html, growth_class = f"{arrow} {mom_growth:+.1f}%", ("kpi-up" if mom_growth >= 0 else "kpi-down")
 
-c5, c6, c7 = st.columns(3)
-c5.metric("Avg Order Value (Rs)", f"{avg_order_value:,.0f}")
-c6.metric("New Dealers (last 90d)", new_dealers)
-c7.metric("Revenue vs Prior Month", f"{mom_growth:+.1f}%" if mom_growth is not None else "—")
+KPI_CARDS = [
+    ("💰", "Total Revenue (Rs)", f"{total_revenue:,.0f}", None),
+    ("🧾", "Total Transactions", f"{total_txns:,.0f}", None),
+    ("🏪", "Active Dealers", f"{active_count:,}", None),
+    ("💤", "Dormant Dealers", f"{dormant_count:,}", None),
+    ("📦", "Avg Order Value (Rs)", f"{avg_order_value:,.0f}", None),
+    ("🆕", "New Dealers (last 90d)", f"{new_dealers:,}", None),
+    ("📊", "Revenue vs Prior Month", growth_html, growth_class),
+]
+cards_html = "".join(
+    f"<div class='kpi-card'><div class='kpi-icon'>{icon}</div>"
+    f"<div class='kpi-label'>{label}</div>"
+    f"<div class='kpi-value {cls or ''}'>{value}</div></div>"
+    for icon, label, value, cls in KPI_CARDS
+)
+st.markdown(
+    f"""
+    <style>
+    .kpi-grid {{
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 16px; margin-bottom: 8px;
+    }}
+    .kpi-card {{
+        background: white; border-left: 4px solid #FF3621; border-radius: 10px;
+        padding: 16px 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }}
+    .kpi-icon {{ font-size: 22px; margin-bottom: 6px; }}
+    .kpi-label {{ font-size: 13px; color: #6b6b6b; margin-bottom: 4px; }}
+    .kpi-value {{ font-size: 26px; font-weight: 700; color: #1a1a1a; }}
+    .kpi-up {{ color: #1a7f37; }}
+    .kpi-down {{ color: #d1242f; }}
+    .kpi-flat {{ color: #6b6b6b; }}
+    </style>
+    <div class="kpi-grid">{cards_html}</div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ===========================================================================
 # 2. Trends & seasonality
