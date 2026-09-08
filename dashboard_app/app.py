@@ -153,11 +153,10 @@ st.markdown(
     }}
     #genie-widget summary::-webkit-details-marker {{ display: none; }}
     #genie-widget iframe {{
-        width: 380px; height: 560px; border: none; border-radius: 12px;
+        width: min(480px, calc(100vw - 48px));
+        height: min(720px, calc(100vh - 120px));
+        border: none; border-radius: 12px;
         box-shadow: 0 8px 30px rgba(0,0,0,0.35);
-    }}
-    @media (max-width: 480px) {{
-        #genie-widget iframe {{ width: 90vw; height: 65vh; }}
     }}
     </style>
     <details id="genie-widget">
