@@ -622,6 +622,20 @@ components.html(
                 height: min(720px, calc(100vh - 120px));
                 border: none; border-radius: 12px;
                 box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+                background: white;
+            }}
+            /* A chart rendered via WebGL/canvas can ignore plain z-index
+               ordering against an iframe in some browsers - that unreliable
+               "iframe vs GPU-composited layer" comparison is exactly what was
+               still bleeding through at max z-index. A full-viewport opaque
+               backdrop (an ordinary div, not an iframe) sits behind the panel
+               and blocks the ENTIRE page first - div-vs-chart stacking is
+               reliable, so the iframe only ever needs to beat this backdrop,
+               never the chart directly. */
+            #genie-backdrop {{
+                position: fixed; inset: 0; width: 100vw; height: 100vh;
+                background: rgba(15, 17, 21, 0.5);
+                z-index: 2147483646;
             }}
             #genie-widget summary {{ position: relative; z-index: 2147483647; }}
         `;
@@ -631,6 +645,7 @@ components.html(
         details.id = 'genie-widget';
         details.innerHTML =
             '<summary>💬</summary>' +
+            '<div id="genie-backdrop"></div>' +
             '<iframe src="{GENIE_EMBED_URL}" allow="clipboard-write"></iframe>';
         doc.body.appendChild(details);
     }})();
