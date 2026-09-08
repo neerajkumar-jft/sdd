@@ -53,11 +53,21 @@ def user_token() -> str:
 def get_connection(token: str):
     cfg = Config()
     host = cfg.host.replace("https://", "").replace("http://", "")
-    return sql.connect(
-        server_hostname=host,
-        http_path=f"/sql/1.0/warehouses/{WAREHOUSE_ID}",
-        access_token=token,
-    )
+    try:
+        return sql.connect(
+            server_hostname=host,
+            http_path=f"/sql/1.0/warehouses/{WAREHOUSE_ID}",
+            access_token=token,
+        )
+    except Exception as err:
+        # The connector's default traceback only shows "Error during request
+        # to server", swallowing the actual HTTP code and server error message
+        # it already captured. Surface those so an auth/scope rejection (403)
+        # is distinguishable from a real network problem at a glance - this is
+        # what caught Shivam's stale-OAuth-grant 403 instead of us guessing.
+        detail = getattr(err, "message_with_context", lambda: str(err))()
+        st.error(f"SQL warehouse connection failed:\n\n{detail}")
+        raise
 
 
 @st.cache_resource(ttl=1800)
