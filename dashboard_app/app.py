@@ -115,6 +115,21 @@ st.caption(f"Viewing as **{email}** — every figure below is scoped to what you
 
 conn = get_connection(token)
 
+# Viewer's own role - dim_person carries no row filter (it's the internal org
+# roster, already exposed to Genie), so this just resolves who's asking rather
+# than restricting anything. Used below to hide cross-territory comparison
+# charts for Territory/Area Sales Managers, who only ever have one territory
+# in scope - RLS already makes those charts correctly-scoped-but-pointless
+# (a single bar), not a data leak.
+with conn.cursor() as cur:
+    cur.execute(
+        "SELECT role FROM pidilite_demo.gold.dim_person WHERE lower(user_email) = lower(%s) LIMIT 1",
+        (email,),
+    )
+    _role_row = cur.fetchone()
+viewer_role = _role_row[0] if _role_row else None
+is_territory_level = viewer_role == "Territory/Area Sales Manager"
+
 # ---------------------------------------------------------------------------
 # Data pulls - a handful of richer queries; almost everything below is
 # derived from these three dataframes in pandas rather than re-queried.
@@ -231,45 +246,51 @@ if len(category_by_month):
     )
 
 # ===========================================================================
-# 3. Territory & hierarchy analysis
+# 3. Territory & hierarchy analysis - comparisons ACROSS territories/regions,
+# so hidden for Territory/Area Sales Managers (RLS gives them exactly one
+# territory; every chart here would just be a single bar).
 # ===========================================================================
-st.header("Territory & Hierarchy")
+if is_territory_level:
+    st.header("Territory & Hierarchy")
+    st.caption("Hidden at territory level — these are cross-territory comparisons, and you have exactly one.")
+else:
+    st.header("Territory & Hierarchy")
 
-by_territory = (
-    territory_month.groupby("field_team_code")["revenue"].sum().reset_index().sort_values("revenue", ascending=False)
-    if len(territory_month) else pd.DataFrame(columns=["field_team_code", "revenue"])
-)
-by_hierarchy = (
-    territory_month.groupby("hierarchy_type")["revenue"].sum().reset_index()
-    if len(territory_month) else pd.DataFrame(columns=["hierarchy_type", "revenue"])
-)
-by_division = (
-    territory_month.groupby("division_id")["revenue"].sum().reset_index().merge(divisions, on="division_id", how="left")
-    if len(territory_month) else pd.DataFrame(columns=["division_id", "revenue", "division_name"])
-)
-
-hcol1, hcol2 = st.columns(2)
-if len(by_territory):
-    hcol1.plotly_chart(px.bar(by_territory, x="field_team_code", y="revenue", title="Revenue by Territory"), use_container_width=True)
-if len(by_hierarchy):
-    hcol2.plotly_chart(px.pie(by_hierarchy, names="hierarchy_type", values="revenue", hole=0.5, title="Sales vs. MDI Hierarchy"), use_container_width=True)
-
-dcol1, dcol2 = st.columns(2)
-if len(by_division):
-    dcol1.plotly_chart(px.bar(by_division, x="division_name", y="revenue", title="Revenue by Division"), use_container_width=True)
-
-if len(territory_month):
-    latest_active = (
-        territory_month.groupby(["field_team_code", "month"])["active_dealers"].sum().reset_index()
-        .sort_values("month").groupby("field_team_code").tail(1)
-        .sort_values("active_dealers", ascending=False)
+    by_territory = (
+        territory_month.groupby("field_team_code")["revenue"].sum().reset_index().sort_values("revenue", ascending=False)
+        if len(territory_month) else pd.DataFrame(columns=["field_team_code", "revenue"])
     )
-    dcol2.plotly_chart(px.bar(latest_active, x="field_team_code", y="active_dealers", title="Active Dealers by Territory (latest month)"), use_container_width=True)
+    by_hierarchy = (
+        territory_month.groupby("hierarchy_type")["revenue"].sum().reset_index()
+        if len(territory_month) else pd.DataFrame(columns=["hierarchy_type", "revenue"])
+    )
+    by_division = (
+        territory_month.groupby("division_id")["revenue"].sum().reset_index().merge(divisions, on="division_id", how="left")
+        if len(territory_month) else pd.DataFrame(columns=["division_id", "revenue", "division_name"])
+    )
 
-if len(territory_month):
-    heat = territory_month.groupby(["field_team_code", "month"])["revenue"].sum().reset_index()
-    pivot = heat.pivot(index="field_team_code", columns="month", values="revenue").fillna(0)
-    st.plotly_chart(px.imshow(pivot, aspect="auto", title="Territory × Month Revenue Heatmap", labels=dict(color="Revenue")), use_container_width=True)
+    hcol1, hcol2 = st.columns(2)
+    if len(by_territory):
+        hcol1.plotly_chart(px.bar(by_territory, x="field_team_code", y="revenue", title="Revenue by Territory"), use_container_width=True)
+    if len(by_hierarchy):
+        hcol2.plotly_chart(px.pie(by_hierarchy, names="hierarchy_type", values="revenue", hole=0.5, title="Sales vs. MDI Hierarchy"), use_container_width=True)
+
+    dcol1, dcol2 = st.columns(2)
+    if len(by_division):
+        dcol1.plotly_chart(px.bar(by_division, x="division_name", y="revenue", title="Revenue by Division"), use_container_width=True)
+
+    if len(territory_month):
+        latest_active = (
+            territory_month.groupby(["field_team_code", "month"])["active_dealers"].sum().reset_index()
+            .sort_values("month").groupby("field_team_code").tail(1)
+            .sort_values("active_dealers", ascending=False)
+        )
+        dcol2.plotly_chart(px.bar(latest_active, x="field_team_code", y="active_dealers", title="Active Dealers by Territory (latest month)"), use_container_width=True)
+
+    if len(territory_month):
+        heat = territory_month.groupby(["field_team_code", "month"])["revenue"].sum().reset_index()
+        pivot = heat.pivot(index="field_team_code", columns="month", values="revenue").fillna(0)
+        st.plotly_chart(px.imshow(pivot, aspect="auto", title="Territory × Month Revenue Heatmap", labels=dict(color="Revenue")), use_container_width=True)
 
 # ===========================================================================
 # 4. Product mix
@@ -300,8 +321,12 @@ if len(dealers):
     pareto["cumulative_pct"] = pareto["revenue_total"].cumsum() / pareto["revenue_total"].sum() * 100
     pcol_a.plotly_chart(px.line(pareto, x="rank", y="cumulative_pct", title="Revenue Concentration (Pareto) — Dealers Ranked by Revenue"), use_container_width=True)
 
-    by_state = dealers.groupby("state")["revenue_total"].sum().reset_index().sort_values("revenue_total", ascending=False)
-    pcol_b.plotly_chart(px.bar(by_state, x="state", y="revenue_total", title="Revenue by State"), use_container_width=True)
+    # Cross-state comparison - same reasoning as "Territory & Hierarchy" above:
+    # a Territory/Area Sales Manager's dealers are typically one state, so this
+    # would just be a single bar.
+    if not is_territory_level:
+        by_state = dealers.groupby("state")["revenue_total"].sum().reset_index().sort_values("revenue_total", ascending=False)
+        pcol_b.plotly_chart(px.bar(by_state, x="state", y="revenue_total", title="Revenue by State"), use_container_width=True)
 
 # ===========================================================================
 # 6. Management performance
