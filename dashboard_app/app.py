@@ -23,6 +23,7 @@ import pandas as pd
 import plotly.express as px
 import psycopg2
 import streamlit as st
+import streamlit.components.v1 as components
 from databricks import sql
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import Config
@@ -555,21 +556,22 @@ else:
     st.caption("You haven't added any comments yet.")
 
 # ===========================================================================
-# Floating Genie chat bubble, bottom-right - a <details>/<summary> toggle
-# rather than a JS-driven one: st.components.v1.html would sandbox this into
-# its own nested iframe, where `position: fixed` only floats within that
-# iframe's own box, not the whole app - and st.markdown strips <script> tags
-# outright. <details> gives click-to-toggle with neither, injected straight
-# into the real page DOM. column-reverse flips the visual stacking so the
-# iframe opens ABOVE the button instead of pushing off-screen below it.
+# Floating Genie chat bubble, bottom-right.
 #
-# Placed LAST, not near the top: Streamlit wraps each top-level block (this
-# one, each chart) in its own animated container, which creates a separate
-# CSS stacking context per block. z-index only wins within a shared stacking
-# context - across separate ones, later-in-DOM wins regardless of z-index, so
-# a Plotly chart declared after this widget was painting over it even at
-# z-index 999999. Being the last block in the script wins that tiebreak
-# against everything above it.
+# Moving this to be the LAST st.markdown call in the script was not enough -
+# still got painted over by a chart (verified via screenshot). Streamlit
+# nests every block, including the last one, inside its own shared wrapping
+# containers, so "last in the script" isn't "last child of <body>". A Plotly
+# chart is itself rendered inside an iframe, and iframe-vs-regular-content
+# stacking is exactly where z-index gets unreliable across browsers.
+#
+# Fix: st.components.v1.html runs in its OWN throwaway iframe (height=0, never
+# visible), but its <script> can reach through same-origin window.parent and
+# inject the real widget as a direct child of the actual page's <body> -
+# genuinely last in the DOM, outside every one of Streamlit's own containers,
+# not just last among them. The `if (parent.document.getElementById(...))
+# return` guard stops it from re-inserting a duplicate on every rerun (this
+# script re-executes each time, since Streamlit reruns top to bottom).
 #
 # Auth is whatever the viewer's own browser already has open with Databricks -
 # same SSO session, same per-user row filters as every other Genie answer
@@ -579,31 +581,43 @@ GENIE_EMBED_URL = (
     "https://dbc-b53b2bf8-6950.cloud.databricks.com/embed/genie/rooms/"
     "01f1aaa58a6c1e639422daac2f1a1dd9?o=7474658069346952"
 )
-st.markdown(
+components.html(
     f"""
-    <style>
-    #genie-widget {{
-        position: fixed; bottom: 24px; right: 24px; z-index: 999999;
-        display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 12px;
-    }}
-    #genie-widget summary {{
-        list-style: none; width: 56px; height: 56px; border-radius: 50%;
-        background: #FF3621; color: white; display: flex; align-items: center;
-        justify-content: center; font-size: 26px; cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }}
-    #genie-widget summary::-webkit-details-marker {{ display: none; }}
-    #genie-widget iframe {{
-        width: min(480px, calc(100vw - 48px));
-        height: min(720px, calc(100vh - 120px));
-        border: none; border-radius: 12px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.35);
-    }}
-    </style>
-    <details id="genie-widget">
-        <summary>💬</summary>
-        <iframe src="{GENIE_EMBED_URL}" allow="clipboard-write"></iframe>
-    </details>
+    <script>
+    (function() {{
+        const doc = window.parent.document;
+        if (doc.getElementById('genie-widget')) {{ return; }}
+
+        const style = doc.createElement('style');
+        style.textContent = `
+            #genie-widget {{
+                position: fixed; bottom: 24px; right: 24px; z-index: 999999;
+                display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 12px;
+            }}
+            #genie-widget summary {{
+                list-style: none; width: 56px; height: 56px; border-radius: 50%;
+                background: #FF3621; color: white; display: flex; align-items: center;
+                justify-content: center; font-size: 26px; cursor: pointer;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }}
+            #genie-widget summary::-webkit-details-marker {{ display: none; }}
+            #genie-widget iframe {{
+                width: min(480px, calc(100vw - 48px));
+                height: min(720px, calc(100vh - 120px));
+                border: none; border-radius: 12px;
+                box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+            }}
+        `;
+        doc.head.appendChild(style);
+
+        const details = doc.createElement('details');
+        details.id = 'genie-widget';
+        details.innerHTML =
+            '<summary>💬</summary>' +
+            '<iframe src="{GENIE_EMBED_URL}" allow="clipboard-write"></iframe>';
+        doc.body.appendChild(details);
+    }})();
+    </script>
     """,
-    unsafe_allow_html=True,
+    height=0,
 )
