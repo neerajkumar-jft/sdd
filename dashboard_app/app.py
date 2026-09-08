@@ -634,7 +634,7 @@ components.html(
                never the chart directly. */
             #genie-backdrop {{
                 position: fixed; inset: 0; width: 100vw; height: 100vh;
-                background: rgba(15, 17, 21, 0.5);
+                background: #ffffff;
                 z-index: 2147483646;
                 /* Visual-only: this is here to out-stack the chart, not to
                    act like a modal. Without this, it also captures every
