@@ -351,6 +351,34 @@ division, which is the actual reason a consumer network is larger.
 
 ---
 
+## Dealer counts: two numbers, both correct
+
+A dealer with no sales is still a dealer. So there are two defensible answers to
+"how many dealers", and they differ by a small amount:
+
+| Persona | Dealers | With at least one sale | Gap |
+|---|---|---|---|
+| Viraj Tiwari | 41 | 41 | 0 |
+| Nathaniel Sami | 46 | 46 | 0 |
+| Abhinav Sarkar | **70** | 69 | 1 |
+| Arunima Dugal | **80** | 79 | 1 |
+| Akshay Siraswar | **175** | 174 | 1 |
+| Shivam Pandey | **384** | 382 | 2 |
+| Neeraj Kumar | **501** | 499 | 2 |
+
+The **bold** column is the right answer to a bare "how many dealers", and it is
+what the dashboard shows. Counting via a join to `fact_sales_transaction`
+silently drops the others.
+
+This was a real defect, and worth knowing how it happened: the space's own
+curated example SQL counted dealers through the fact join in five places, so
+Genie was learning the wrong pattern from the examples rather than in spite of
+them. Asked as Akshay, it answered 174 where the dashboard said 175. Fixed in
+both the instructions and all five queries — but re-test it, because an
+instruction changes what the model *tends* to do, not what it *can* do.
+
+---
+
 ## 🔴 Known weak spots — check these before the client sees them
 
 Genie is a language model over SQL. These are the places it is most likely to

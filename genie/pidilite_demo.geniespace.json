@@ -96,6 +96,19 @@
           "* **Who manages what** → `dim_field_team` joined three times to `dim_person`",
           "  on `master_person_id`, `ra1_person_id` and `ra2_person_id`.",
           "",
+          "# Counting dealers",
+          "",
+          "Count dealers from `dim_customer` or `agg_dealer_scorecard`, which carry one",
+          "row per dealer whether or not that dealer has ever bought anything. Counting",
+          "with `count(DISTINCT customer_code)` over a join to",
+          "`fact_sales_transaction` silently drops every dealer with no sales, so the",
+          "figure comes out lower than the dashboard's and lower than the real count.",
+          "",
+          "Two of the 501 dealers have never purchased at all, and more have none in any",
+          "given period, so the gap is real rather than theoretical. If you deliberately",
+          "mean \"dealers who bought\", say so in the answer - do not present it as the",
+          "dealer count.",
+          "",
           "`fact_sales_transaction.salesperson_id` is the Territory/Area Sales Manager",
           "credited with the sale. It joins to `dim_person.person_id`.",
           "",
@@ -275,12 +288,15 @@
         "sql": [
           "-- No user predicate anywhere. Whatever this returns IS the signed-in user's",
           "-- scope, because the row filter applied before the query ran.",
-          "SELECT count(DISTINCT c.customer_code) AS dealers,",
-          "       count(DISTINCT c.field_team_code || '|' || c.hierarchy_type) AS territories,",
-          "       count(*)                        AS transactions,",
-          "       sum(f.revenue)                  AS revenue",
-          "FROM pidilite_demo.gold.fact_sales_transaction f",
-          "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code"
+          "--",
+          "-- Dealer and territory counts come from dim_customer, NOT from a join to the",
+          "-- fact table: a dealer with no sales is still a dealer, and joining would drop",
+          "-- them and undercount. Each subquery is filtered independently.",
+          "SELECT (SELECT count(*) FROM pidilite_demo.gold.dim_customer) AS dealers,",
+          "       (SELECT count(DISTINCT field_team_code || '|' || hierarchy_type)",
+          "          FROM pidilite_demo.gold.dim_customer) AS territories,",
+          "       (SELECT count(*) FROM pidilite_demo.gold.fact_sales_transaction) AS transactions,",
+          "       (SELECT sum(revenue) FROM pidilite_demo.gold.fact_sales_transaction) AS revenue"
         ],
         "id": "05889cd294bfec45cab3a5ce0aabba7b"
       },
@@ -291,13 +307,24 @@
         "sql": [
           "-- The two chains are reported separately; never sum them into one figure",
           "-- without labelling which is which.",
-          "SELECT c.hierarchy_type,",
-          "       count(DISTINCT c.customer_code) AS dealers,",
-          "       sum(f.revenue)                  AS revenue",
-          "FROM pidilite_demo.gold.fact_sales_transaction f",
-          "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
-          "GROUP BY c.hierarchy_type",
-          "ORDER BY revenue DESC"
+          "--",
+          "-- Dealers are counted from dim_customer and revenue from the fact, then joined:",
+          "-- counting dealers through the fact join would omit any dealer with no sales.",
+          "WITH dealer_counts AS (",
+          "  SELECT hierarchy_type, count(*) AS dealers",
+          "  FROM pidilite_demo.gold.dim_customer",
+          "  GROUP BY hierarchy_type",
+          "),",
+          "revenue_by_chain AS (",
+          "  SELECT c.hierarchy_type, sum(f.revenue) AS revenue",
+          "  FROM pidilite_demo.gold.fact_sales_transaction f",
+          "  JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
+          "  GROUP BY c.hierarchy_type",
+          ")",
+          "SELECT d.hierarchy_type, d.dealers, r.revenue",
+          "FROM dealer_counts d",
+          "LEFT JOIN revenue_by_chain r ON r.hierarchy_type = d.hierarchy_type",
+          "ORDER BY r.revenue DESC"
         ],
         "id": "062a79c3a260ab410b84b85ae209111d"
       },
@@ -367,11 +394,9 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT count(DISTINCT c.customer_code) AS dealers,",
-              "       count(*)       AS transactions,",
-              "       sum(f.revenue) AS revenue",
-              "FROM pidilite_demo.gold.fact_sales_transaction f",
-              "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code"
+              "SELECT (SELECT count(*) FROM pidilite_demo.gold.dim_customer) AS dealers,",
+              "       (SELECT count(*) FROM pidilite_demo.gold.fact_sales_transaction) AS transactions,",
+              "       (SELECT sum(revenue) FROM pidilite_demo.gold.fact_sales_transaction) AS revenue"
             ]
           }
         ],
@@ -535,13 +560,20 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT c.hierarchy_type,",
-              "       count(DISTINCT c.customer_code) AS dealers,",
-              "       sum(f.revenue) AS revenue",
-              "FROM pidilite_demo.gold.fact_sales_transaction f",
-              "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
-              "GROUP BY c.hierarchy_type",
-              "ORDER BY revenue DESC"
+              "WITH dealer_counts AS (",
+              "  SELECT hierarchy_type, count(*) AS dealers",
+              "  FROM pidilite_demo.gold.dim_customer GROUP BY hierarchy_type",
+              "),",
+              "revenue_by_chain AS (",
+              "  SELECT c.hierarchy_type, sum(f.revenue) AS revenue",
+              "  FROM pidilite_demo.gold.fact_sales_transaction f",
+              "  JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
+              "  GROUP BY c.hierarchy_type",
+              ")",
+              "SELECT d.hierarchy_type, d.dealers, r.revenue",
+              "FROM dealer_counts d",
+              "LEFT JOIN revenue_by_chain r ON r.hierarchy_type = d.hierarchy_type",
+              "ORDER BY r.revenue DESC"
             ]
           }
         ],
@@ -555,13 +587,20 @@
           {
             "format": "SQL",
             "content": [
-              "SELECT c.city, c.state,",
-              "       count(DISTINCT c.customer_code) AS dealers,",
-              "       sum(f.revenue) AS revenue",
-              "FROM pidilite_demo.gold.fact_sales_transaction f",
-              "JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
-              "GROUP BY c.city, c.state",
-              "ORDER BY revenue DESC"
+              "WITH dealer_counts AS (",
+              "  SELECT city, state, count(*) AS dealers",
+              "  FROM pidilite_demo.gold.dim_customer GROUP BY city, state",
+              "),",
+              "revenue_by_city AS (",
+              "  SELECT c.city, c.state, sum(f.revenue) AS revenue",
+              "  FROM pidilite_demo.gold.fact_sales_transaction f",
+              "  JOIN pidilite_demo.gold.dim_customer c ON c.customer_code = f.customer_code",
+              "  GROUP BY c.city, c.state",
+              ")",
+              "SELECT d.city, d.state, d.dealers, r.revenue",
+              "FROM dealer_counts d",
+              "LEFT JOIN revenue_by_city r ON r.city = d.city AND r.state = d.state",
+              "ORDER BY r.revenue DESC"
             ]
           }
         ],
