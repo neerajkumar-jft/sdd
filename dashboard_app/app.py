@@ -16,18 +16,29 @@ chart - fewer queries against a viewer-scoped connection that's slower to
 warm up than the app's own service-principal queries would be.
 """
 import html
+import os
 from urllib.parse import quote
 
 import pandas as pd
 import plotly.express as px
+import psycopg2
 import streamlit as st
 from databricks import sql
+from databricks.sdk import WorkspaceClient
 from databricks.sdk.core import Config
 
 st.set_page_config(page_title="X Industries — Sales Dashboard", layout="wide")
 
 WAREHOUSE_ID = "be5dd2cb70eb66ee"
+LAKEBASE_INSTANCE = "pidilite-comments"
 COMMENT_APP_URL = "https://pidilite-comments-app-7474658069346952.aws.databricksapps.com"
+
+# Ambient auth as THIS APP'S OWN service principal - deliberately not the
+# viewer's OBO identity. "My Comments" below is scoped by a literal
+# `WHERE user_email = <viewer's email>` filter instead, which is what the
+# user actually asked for ("who opens the url, the data is shown for them
+# only") and is simpler than wiring OBO through to Postgres as well.
+w = WorkspaceClient()
 
 
 def viewer_email() -> str:
@@ -47,6 +58,23 @@ def get_connection(token: str):
         http_path=f"/sql/1.0/warehouses/{WAREHOUSE_ID}",
         access_token=token,
     )
+
+
+@st.cache_resource(ttl=1800)
+def get_pg_connection():
+    cred = w.database.generate_database_credential(instance_names=[LAKEBASE_INSTANCE])
+    conn = psycopg2.connect(
+        host=os.environ["PGHOST"],
+        port=os.environ.get("PGPORT", "5432"),
+        dbname=os.environ["PGDATABASE"],
+        user=os.environ["PGUSER"],
+        password=cred.token,
+        sslmode=os.environ.get("PGSSLMODE", "require"),
+    )
+    # Cached and reused across reruns, not held for one transaction - a single
+    # failed statement must not poison every later one on this connection.
+    conn.autocommit = True
+    return conn
 
 
 def run_query(conn, query: str) -> pd.DataFrame:
@@ -324,3 +352,76 @@ if len(field_teams):
     )
 else:
     st.caption("No territories visible to your role.")
+
+# ===========================================================================
+# My Comments - every comment THIS viewer has written, across whichever
+# customers/territories they've commented on. Scoped by a literal
+# `WHERE user_email = <viewer>` filter - deliberately not the record-scoped
+# read the comment app uses, since the point here is "my history", not "this
+# record's comments". Editable inline (comment_text only); Save runs a
+# per-changed-row UPDATE, always re-checking `AND user_email = %s` so this
+# can never touch a comment that isn't the viewer's, even if a bug elsewhere
+# let a bad comment_id through.
+# ===========================================================================
+st.header("My Comments")
+
+pg_conn = get_pg_connection()
+with pg_conn.cursor() as cur:
+    cur.execute(
+        "SELECT comment_id, scope_type, scope_id, comment_text, created_at, updated_at "
+        "FROM public.comments WHERE user_email = %s ORDER BY created_at DESC",
+        (email,),
+    )
+    my_rows = cur.fetchall()
+    my_cols = [d[0] for d in cur.description]
+my_comments = pd.DataFrame(my_rows, columns=my_cols)
+
+if len(my_comments):
+    def _record_label(row):
+        if row["scope_type"] == "customer":
+            match = dealers[dealers["customer_code"].astype(str) == str(row["scope_id"])]
+            return match["customer_name"].iloc[0] if len(match) else str(row["scope_id"])
+        match = field_teams[field_teams["field_team_code"] == row["scope_id"]]
+        if len(match):
+            return f"{row['scope_id']} ({match['hierarchy_type'].iloc[0]})"
+        return str(row["scope_id"])
+
+    my_comments["record"] = my_comments.apply(_record_label, axis=1)
+    original = my_comments.set_index("comment_id")[
+        ["scope_type", "record", "comment_text", "created_at", "updated_at"]
+    ]
+
+    edited = st.data_editor(
+        original,
+        column_config={
+            "scope_type": st.column_config.TextColumn("Type", disabled=True),
+            "record": st.column_config.TextColumn("Record", disabled=True),
+            "comment_text": st.column_config.TextColumn("Comment", disabled=False),
+            "created_at": st.column_config.DatetimeColumn("Created", disabled=True),
+            "updated_at": st.column_config.DatetimeColumn("Last edited", disabled=True),
+        },
+        hide_index=True,
+        use_container_width=True,
+        key="my_comments_editor",
+    )
+
+    if st.button("Save changes to my comments"):
+        changed = 0
+        for comment_id in original.index:
+            old_text = original.loc[comment_id, "comment_text"]
+            new_text = edited.loc[comment_id, "comment_text"]
+            if new_text != old_text:
+                with pg_conn.cursor() as cur:
+                    cur.execute(
+                        "UPDATE public.comments SET comment_text = %s, updated_at = now() "
+                        "WHERE comment_id = %s AND user_email = %s",
+                        (new_text, comment_id, email),
+                    )
+                changed += 1
+        if changed:
+            st.success(f"Updated {changed} comment(s).")
+            st.rerun()
+        else:
+            st.info("No changes to save.")
+else:
+    st.caption("You haven't added any comments yet.")

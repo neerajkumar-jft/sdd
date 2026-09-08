@@ -3,3 +3,4 @@ pandas
 plotly
 databricks-sql-connector
 databricks-sdk==0.136.0
+psycopg2-binary

@@ -24,7 +24,13 @@ CREATE TABLE IF NOT EXISTS public.comments (
     scope_id TEXT NOT NULL,
     user_email TEXT NOT NULL,
     comment_text TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- NULL until a comment is edited. Set by the scoped dashboard's "My
+    -- Comments" editor (dashboard_app/app.py), the only place a comment can
+    -- be updated after creation.
+    updated_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_comments_scope ON public.comments (scope_type, scope_id);
+-- "My Comments" filters by author - added when that feature landed.
+CREATE INDEX IF NOT EXISTS idx_comments_user_email ON public.comments (user_email);
