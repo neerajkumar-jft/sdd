@@ -39,7 +39,7 @@ TABLES=(
   agg_sales_by_territory_month
   agg_dealer_scorecard
 )
-FUNCTIONS=(can_see_customer can_see_field_team)
+FUNCTIONS=(can_see_customer can_see_field_team can_see_person)
 
 fail=0
 step() {  # step <label> <command...>

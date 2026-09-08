@@ -374,6 +374,74 @@ def gold_access_map_field_team():
 
 
 @dlt.table(
+    name=f"{GOLD}.access_map_person",
+    comment=(
+        "Gold: flattened roster entitlements (user_email -> person_id). Who each "
+        "user can see on the org roster: their own management chain, plus "
+        "themselves. Head Office sees everyone."
+    ),
+)
+def gold_access_map_person():
+    """One row per (person, other person they may see on the roster).
+
+    Without this, dim_person is unfiltered and every user can read the entire
+    org chart - names, roles, divisions, hierarchy_type and email addresses for
+    people in chains they have nothing to do with. That surfaced through Genie:
+    asked about a National Manager, it volunteered that there are two of them,
+    named the one running the other hierarchy, and mentioned that hierarchy
+    exists. No revenue leaked, but the structure did.
+
+    Visibility follows the territories you are already entitled to: for each of
+    those, you may see its Master, RA1 and RA2. So a Territory Manager sees
+    their own chain upward, a Zonal Manager sees their Masters and their own
+    National Manager, and neither sees the other management chain at all.
+
+    Self is included explicitly and is NOT optional - the dashboard app reads
+    the viewer's own role from dim_person to decide which chart sections to
+    show, and a person at the bottom of a chain is not in any team's RA
+    columns.
+    """
+    field_team = _silver("dim_field_team")
+    person = _silver("dim_person")
+
+    # The chain above and below each territory the user can see.
+    chain = None
+    for column, _via in MANAGEMENT_SCOPES:
+        part = field_team.select(
+            "field_team_code", "hierarchy_type", F.col(column).alias("person_id")
+        ).filter(F.col("person_id").isNotNull())
+        chain = part if chain is None else chain.unionByName(part)
+
+    via_territory = (
+        _field_team_grants()
+        .select("user_email", "field_team_code", "hierarchy_type")
+        .join(chain, ["field_team_code", "hierarchy_type"], "inner")
+        .select("user_email", "person_id")
+    )
+
+    roster = person.select("person_id", "user_email").filter(F.col("user_email").isNotNull())
+
+    # Yourself, always.
+    myself = roster.select("user_email", "person_id")
+
+    # Head Office spans every division and both chains, so it also spans the
+    # roster - including the other Head Office members, who sit in no team's
+    # management columns and would otherwise be invisible to each other.
+    head_office = (
+        person.filter(F.col("role") == HEAD_OFFICE_ROLE)
+        .select("user_email")
+        .filter(F.col("user_email").isNotNull())
+        .crossJoin(roster.select("person_id"))
+    )
+
+    return (
+        via_territory.unionByName(myself).unionByName(head_office)
+        .select(F.lower("user_email").alias("user_email"), "person_id")
+        .distinct()
+    )
+
+
+@dlt.table(
     name=f"{GOLD}.access_map_customer",
     comment=(
         "Gold: flattened customer entitlements (user_email -> customer_code), "

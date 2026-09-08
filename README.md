@@ -149,6 +149,31 @@ later, not only the ones that existed when the gap was found.
 `EXECUTE` on the row-filter function, never read access to the entitlement
 tables.
 
+#### The org roster is filtered too
+
+`dim_person` was originally left unfiltered, on the reasoning that an org chart
+is not usually confidential per-territory. That was the wrong call for this
+data, because the roster also carries `hierarchy_type` — and it surfaced
+through Genie. Asked about a National Manager, it read the unfiltered roster and
+volunteered that there are two of them, named the one running the *other*
+hierarchy, and disclosed that the hierarchy exists. No revenue leaked; the
+organisational structure did. The table also carries every person's email.
+
+`gold.access_map_person` now scopes it: for each territory you are entitled to,
+you may see that territory's Master, RA1 and RA2 — plus yourself, always,
+because the dashboard app reads your own role from this table to decide which
+chart sections to show. Head Office sees the whole roster.
+
+| Persona | People visible |
+|---|---|
+| Territory Manager | **3** — themselves, their Zonal Manager, their National Manager |
+| Zonal Manager | **5** — themselves, their Territory Managers, their National Manager |
+| National Manager | **17** — their whole chain, and nothing from the other one |
+| Head Office | **30** — everyone |
+
+A peer Territory Manager is now invisible to another, and neither National
+Manager can see the other.
+
 `tests/verify_access_map_logic.py` proves the entitlement algebra offline, in
 plain Python against the generated CSVs (containment, no cross-hierarchy
 leak, coverage, no-identity-no-access) — useful for iterating on the

@@ -48,6 +48,7 @@ DESCRIBE TABLE EXTENDED pidilite_demo.gold.dim_customer;
 DESCRIBE TABLE EXTENDED pidilite_demo.gold.dim_field_team;
 DESCRIBE TABLE EXTENDED pidilite_demo.gold.agg_sales_by_territory_month;
 DESCRIBE TABLE EXTENDED pidilite_demo.gold.agg_dealer_scorecard;
+DESCRIBE TABLE EXTENDED pidilite_demo.gold.dim_person;
 
 -- Catalog-wide view of every filter in place. Inspect the column names on
 -- first run rather than assuming them - this view's shape is not something to

@@ -61,6 +61,18 @@ RETURN EXISTS (
 );
 
 
+-- Roster entitlement. Backs the filter on dim_person.
+CREATE OR REPLACE FUNCTION pidilite_demo.gold.can_see_person(p_person_id STRING)
+RETURNS BOOLEAN
+COMMENT 'Row filter: true when the current user may see this person on the org roster.'
+RETURN EXISTS (
+  SELECT 1
+  FROM pidilite_demo.gold.access_map_person m
+  WHERE lower(m.user_email) = lower(current_user())
+    AND m.person_id = p_person_id
+);
+
+
 -- Production-scale alternative, kept for Phase 1, NOT active here.
 -- Once the roster is org-wide, Head Office rows in the map multiply as
 -- (HO users x customers) and it is cheaper to short-circuit on group
@@ -115,13 +127,23 @@ ALTER MATERIALIZED VIEW pidilite_demo.gold.agg_sales_by_territory_month
 ALTER MATERIALIZED VIEW pidilite_demo.gold.agg_dealer_scorecard
   SET ROW FILTER pidilite_demo.gold.can_see_customer ON (customer_code);
 
+-- The org roster. Previously left unfiltered on the reasoning that an org chart
+-- is not usually confidential per-territory - which turned out to be the wrong
+-- call for this data, because the roster carries hierarchy_type. Asked about a
+-- National Manager, Genie read the unfiltered roster and volunteered that there
+-- are two of them, named the one running the OTHER hierarchy, and disclosed
+-- that hierarchy exists. No revenue leaked; the org structure did. It also
+-- carries every person's email address.
+--
+-- Now scoped to the caller's own management chain plus themselves, so a
+-- Territory Manager sees their chain upward and neither peer TMs nor the other
+-- hierarchy. Self is essential: the dashboard app reads the viewer's own role
+-- from this table to decide which chart sections to show.
+ALTER MATERIALIZED VIEW pidilite_demo.gold.dim_person
+  SET ROW FILTER pidilite_demo.gold.can_see_person ON (person_id);
+
 -- Deliberately NOT filtered, and worth saying out loud rather than leaving
 -- unexplained:
---   * gold.dim_person   - the internal org roster. Genie needs it to answer
---                         "who manages this territory", and an org chart is
---                         not normally treated as confidential per-territory.
---                         Confirm with the client; if they disagree, filter it
---                         on (field_team_code) via a person->team map.
 --   * gold.dim_division - four rows, effectively reference data.
 --   * gold.access_map_* - the entitlement tables themselves. Filtering these
 --                         would be circular; they are protected by NOT being
@@ -133,6 +155,7 @@ ALTER MATERIALIZED VIEW pidilite_demo.gold.agg_dealer_scorecard
 --   ALTER MATERIALIZED VIEW pidilite_demo.gold.dim_field_team               DROP ROW FILTER;
 --   ALTER MATERIALIZED VIEW pidilite_demo.gold.agg_sales_by_territory_month DROP ROW FILTER;
 --   ALTER MATERIALIZED VIEW pidilite_demo.gold.agg_dealer_scorecard         DROP ROW FILTER;
+--   ALTER MATERIALIZED VIEW pidilite_demo.gold.dim_person                   DROP ROW FILTER;
 
 
 -- -----------------------------------------------------------------------------
@@ -159,6 +182,7 @@ ALTER MATERIALIZED VIEW pidilite_demo.gold.agg_dealer_scorecard
 --
 -- GRANT EXECUTE ON FUNCTION pidilite_demo.gold.can_see_customer   TO `<persona>`;
 -- GRANT EXECUTE ON FUNCTION pidilite_demo.gold.can_see_field_team TO `<persona>`;
+-- GRANT EXECUTE ON FUNCTION pidilite_demo.gold.can_see_person     TO `<persona>`;
 --
 -- Explicitly withheld - do not grant, and revoke if inherited:
 -- REVOKE ALL PRIVILEGES ON TABLE pidilite_demo.gold.access_map_customer   FROM `<persona>`;
