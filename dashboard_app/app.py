@@ -591,7 +591,7 @@ components.html(
         const style = doc.createElement('style');
         style.textContent = `
             #genie-widget {{
-                position: fixed; bottom: 24px; right: 24px; z-index: 999999;
+                position: fixed; bottom: 24px; right: 24px; z-index: 2147483647;
                 display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 12px;
             }}
             #genie-widget summary {{
