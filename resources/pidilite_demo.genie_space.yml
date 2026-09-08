@@ -1,12 +1,16 @@
+# NOTE (2026-09-08): `databricks bundle deploy` on the currently installed CLI
+# (v0.297.2) rejects this whole file - "unknown field: genie_spaces" / "resource
+# type genie_spaces.permissions not supported". This resource has never actually
+# been reconciled through the bundle on this CLI version; the live space's
+# title/description/permissions were applied directly via
+# `databricks genie update-space` / `create-space` instead. Keep this file in
+# sync by hand until the CLI adds real genie_spaces support, rather than
+# assuming a bundle deploy will pick up edits made here.
 resources:
   genie_spaces:
     pidilite_demo_genie:
       title: "X Industries Sales — Ask Anything"
-      description: >-
-        Natural-language questions over the governed sales model. Every answer is
-        automatically scoped to the signed-in user's place in the sales
-        hierarchy, because the underlying gold tables carry Unity Catalog row
-        filters.
+      description: "Natural-language analytics for X Industries sales performance."
       warehouse_id: be5dd2cb70eb66ee
       file_path: ../genie/pidilite_demo.geniespace.json
 
