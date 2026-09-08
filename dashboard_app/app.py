@@ -632,17 +632,21 @@ components.html(
                and blocks the ENTIRE page first - div-vs-chart stacking is
                reliable, so the iframe only ever needs to beat this backdrop,
                never the chart directly. */
+            /* Sized and positioned to match the iframe exactly, NOT the full
+               viewport - a full-page backdrop blocked the chart fine but also
+               whited out the entire dashboard behind it. Scoping this to just
+               the panel's own footprint blocks only the small region the
+               chart was bleeding into. pointer-events: none so it doesn't
+               swallow clicks/scroll on the (small) dashboard area it covers -
+               the iframe and summary are separate elements and stay
+               interactive regardless. */
             #genie-backdrop {{
-                position: fixed; inset: 0; width: 100vw; height: 100vh;
+                position: fixed; bottom: 24px; right: 24px;
+                width: min(480px, calc(100vw - 48px));
+                height: min(720px, calc(100vh - 120px));
                 background: #ffffff;
+                border-radius: 12px;
                 z-index: 2147483646;
-                /* Visual-only: this is here to out-stack the chart, not to
-                   act like a modal. Without this, it also captures every
-                   scroll/click on the rest of the page while the panel is
-                   open, since it's covering the full viewport. Passing
-                   events through leaves the dashboard behind it fully usable;
-                   the iframe and summary are separate elements, so the chat
-                   panel itself stays clickable regardless of this. */
                 pointer-events: none;
             }}
             #genie-widget summary {{ position: relative; z-index: 2147483647; }}
