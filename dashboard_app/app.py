@@ -602,11 +602,13 @@ components.html(
             }}
             #genie-widget summary::-webkit-details-marker {{ display: none; }}
             #genie-widget iframe {{
+                position: relative; z-index: 2147483647;
                 width: min(480px, calc(100vw - 48px));
                 height: min(720px, calc(100vh - 120px));
                 border: none; border-radius: 12px;
                 box-shadow: 0 8px 30px rgba(0,0,0,0.35);
             }}
+            #genie-widget summary {{ position: relative; z-index: 2147483647; }}
         `;
         doc.head.appendChild(style);
 
